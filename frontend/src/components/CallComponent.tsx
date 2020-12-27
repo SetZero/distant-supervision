@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { WebRTC } from "../classes/WebRTC";
+import { Button } from '@material-ui/core';
 
 interface CallProps { }
 let webRTC: WebRTC
@@ -24,7 +25,7 @@ export const CallComponent: React.FC<CallProps> = () => {
             {finishedLoading ?
                 <div>
                     <video id="localVideo" autoPlay playsInline controls={true} ref={video}></video>
-                    <button id="startCall" onClick={() => webRTC.startCall()} disabled={callEnabled}>Call</button>
+                    <Button id="startCall" onClick={() => webRTC.startCall()} disabled={callEnabled}>Call</Button>
                 </div> : <div>Loading...</div>
             }
         </div>
