@@ -18,7 +18,9 @@ const constraints = {
 }
 
 export class WebRTC {
-    private conn = new WebSocket((this.isSecureContext() ? "wss://" : "ws://") + document.location.hostname + ":5501/ws");;
+    private readonly port = (window.location.host === "localhost" ? ":5501" : "");
+    private readonly protocol = (this.isSecureContext() ? "wss://" : "ws://");
+    private conn = new WebSocket(this.protocol + document.location.hostname + this.port + "/ws");;
     private peerConnection = new RTCPeerConnection(configuration);
     private stream: any;
     private video;
