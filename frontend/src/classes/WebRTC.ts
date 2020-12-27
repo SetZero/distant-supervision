@@ -33,8 +33,12 @@ export class WebRTC {
         this.startSignaling(window.location.hash).then((c) => {
             c.addEventListener('message', async message => {
                 try {
-                this.acceptCall(JSON.parse(message.data));
-                } catch(e) {
+                    let jsonArr = message.data.trim().split("\n").filter((el: string) => el !== "");
+                    jsonArr.forEach((element: string) => {
+                        this.acceptCall(JSON.parse(element));
+                    });
+                } catch (e) {
+                    console.error(e);
                     console.log(message.data);
                 }
             });
@@ -60,7 +64,7 @@ export class WebRTC {
     }
 
     private startSignaling(userId: String) {
-        return new Promise<WebSocket>( (resolve, reject) => {
+        return new Promise<WebSocket>((resolve, reject) => {
             this.conn.onopen = () => resolve(this.conn);
         });
     }
@@ -69,7 +73,7 @@ export class WebRTC {
         if (this.videoState !== ShareState.INITAL)
             return;
 
-            this.videoState = ShareState.IN_PROGRESS;
+        this.videoState = ShareState.IN_PROGRESS;
         console.log("start call");
         // @ts-ignore
         this.stream = await navigator.mediaDevices.getDisplayMedia(constraints);
@@ -139,7 +143,7 @@ export class WebRTC {
         if (pc) {
             console.log(`${(pc)} ICE state: ${pc.iceConnectionState}`);
             console.log('ICE state change event: ', event);
-            if(((event.target) as RTCPeerConnection)?.iceConnectionState === "disconnected") {
+            if (((event.target) as RTCPeerConnection)?.iceConnectionState === "disconnected") {
                 this.videoState = ShareState.INITAL;
                 console.log(((event.target) as RTCPeerConnection)?.iceConnectionState);
             }
