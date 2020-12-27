@@ -18,7 +18,7 @@ const constraints = {
 }
 
 export class WebRTC {
-    private readonly port = (window.location.host === "localhost" ? ":5501" : "");
+    private readonly port = (window.location.hostname === "localhost" ? ":5501" : "");
     private readonly protocol = (this.isSecureContext() ? "wss://" : "ws://");
     private conn = new WebSocket(this.protocol + document.location.hostname + this.port + "/ws");;
     private peerConnection = new RTCPeerConnection(configuration);
@@ -31,7 +31,13 @@ export class WebRTC {
         console.log("created object")
         this.video = video;
         this.startSignaling(window.location.hash).then((c) => {
-            c.addEventListener('message', async message => this.acceptCall(JSON.parse(message.data)));
+            c.addEventListener('message', async message => {
+                try {
+                this.acceptCall(JSON.parse(message.data));
+                } catch(e) {
+                    console.log(message.data);
+                }
+            });
             finishedLoading(true);
         });
     }
@@ -133,6 +139,10 @@ export class WebRTC {
         if (pc) {
             console.log(`${(pc)} ICE state: ${pc.iceConnectionState}`);
             console.log('ICE state change event: ', event);
+            if(((event.target) as RTCPeerConnection)?.iceConnectionState === "disconnected") {
+                this.videoState = ShareState.INITAL;
+                console.log(((event.target) as RTCPeerConnection)?.iceConnectionState);
+            }
         }
     }
 }
