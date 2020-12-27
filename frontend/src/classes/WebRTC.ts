@@ -18,7 +18,7 @@ const constraints = {
 }
 
 export class WebRTC {
-    private conn = new WebSocket("ws://" + document.location.hostname + ":5501/ws");;
+    private conn = new WebSocket((this.isSecureContext() ? "wss://" : "ws://") + document.location.hostname + ":5501/ws");;
     private peerConnection = new RTCPeerConnection(configuration);
     private stream: any;
     private video;
@@ -38,6 +38,9 @@ export class WebRTC {
         this.video = video;
     }
 
+    private isSecureContext() {
+        return window.location.protocol === 'https:';
+    }
     private generatRandomId(length: Number) {
         var result = '';
         var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
