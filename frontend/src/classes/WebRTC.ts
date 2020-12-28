@@ -26,6 +26,7 @@ export class WebRTC {
     private video;
     private videoState = ShareState.INITAL;
     private readonly myId = this.generatRandomId(36);
+    private myRoom = "CHANGEME"
 
     constructor(video: React.RefObject<HTMLVideoElement>, finishedLoading: React.Dispatch<React.SetStateAction<boolean>>) {
         console.log("created object")
@@ -65,7 +66,10 @@ export class WebRTC {
 
     private startSignaling(userId: String) {
         return new Promise<WebSocket>((resolve, reject) => {
-            this.conn.onopen = () => resolve(this.conn);
+            this.conn.onopen = () => {
+                this.conn.send(JSON.stringify({ type: "joinMessage", message: { roomId: this.myRoom } }))
+                resolve(this.conn);
+            }
         });
     }
 
@@ -118,6 +122,15 @@ export class WebRTC {
         } else if (message.sendIceCanidate && this.videoState === ShareState.IN_PROGRESS) {
             this.peerConnection.addIceCandidate(message.sendIceCanidate);
             console.log("Got ICE Canidate!");
+        } else if (message.type) {
+            switch (message.type) {
+                case "error":
+                    console.log("There was an error while performing websocket communication: ", message.message.Type);
+                    break;
+                case "joinedMessage":
+                    console.log("successfully joined room!");
+                    break;
+            }
         }
     }
 
