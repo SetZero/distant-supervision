@@ -1,9 +1,11 @@
 package client
 
-/*type RoomMessage struct {
-	room              string
-	broadcastMessages chan []byte
-}*/
+import "fmt"
+
+type RoomMessage struct {
+	room             string
+	broadcastMessage []byte
+}
 
 // Hub maintains the set of active clients and broadcasts messages to the
 // clients.
@@ -31,33 +33,44 @@ func NewHub() *Hub {
 }
 
 func (h *Hub) Run() {
+	agg := make(chan RoomMessage)
 	for {
 		select {
 		case roomJoin := <-h.register:
 			if h.rooms[roomJoin.roomId] == nil {
 				h.rooms[roomJoin.roomId] = make(map[*Client]bool)
+				h.broadcast[roomJoin.roomId] = make(chan []byte)
+				h.rebuildChannelAggregator(&agg)
+				fmt.Println("One:", agg)
 			}
-
 			h.rooms[roomJoin.roomId][roomJoin.client] = true
-			/*case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
-			}*/
-		}
+			fmt.Println("Two:", agg)
+		/*case client := <-h.unregister:
+		if _, ok := h.clients[client]; ok {
+			delete(h.clients, client)
+			close(client.send)
+		}*/
 
-		for broadcastRoom, broadcastChannel := range h.broadcast {
-			select {
-			case roomMessages := <-broadcastChannel:
-				for client := range h.rooms[broadcastRoom] {
-					select {
-					case client.send <- roomMessages:
-					default:
-						close(client.send)
-						delete(h.rooms[broadcastRoom], client)
-					}
+		case roomMessages := <-agg:
+			fmt.Println("Called: ", roomMessages)
+			for client := range h.rooms[roomMessages.room] {
+				select {
+				case client.send <- roomMessages.broadcastMessage:
+				default:
+					close(client.send)
+					delete(h.rooms[roomMessages.room], client)
 				}
 			}
 		}
+	}
+}
+
+func (h *Hub) rebuildChannelAggregator(agg *chan RoomMessage) {
+	for roomId, ch := range h.broadcast {
+		go func(c chan []byte, roomId string) {
+			for msg := range c {
+				*agg <- RoomMessage{roomId, msg}
+			}
+		}(ch, roomId)
 	}
 }

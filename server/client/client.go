@@ -99,7 +99,7 @@ func NewClient(hub *Hub, conn *websocket.Conn) Client {
 // A goroutine running writePump is started for each connection. The
 // application ensures that there is at most one writer to a connection by
 // executing all writes from this goroutine.
-func (c *Client) writePump() {
+func (c *Client) WritePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -160,7 +160,7 @@ func (c *Client) ReadPump() {
 			}
 			break
 		}
-		/**/
+
 		switch c.state {
 		case INITIAL:
 			c.handleInitialMessage(message)
@@ -170,7 +170,7 @@ func (c *Client) ReadPump() {
 			sb.Write(bytes.TrimSpace(bytes.Replace(message, newline, space, -1)))
 			sb.WriteByte('\n')
 			msg := []byte(sb.String())
-			c.hub.broadcast[c.room] <-msg
+			c.hub.broadcast[c.room] <- msg
 			if c.readMessages(ticker) {
 				return
 			}
@@ -184,6 +184,7 @@ func (c *Client) ReadPump() {
 func (c *Client) readMessages(ticker *time.Ticker) bool {
 	select {
 	case message, ok := <-c.send:
+		fmt.Println("Go!")
 		c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 		if !ok {
 			// The hub closed the channel.
