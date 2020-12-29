@@ -184,7 +184,6 @@ func (c *Client) ReadPump() {
 func (c *Client) readMessages(ticker *time.Ticker) bool {
 	select {
 	case message, ok := <-c.send:
-		fmt.Println("Go!")
 		c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 		if !ok {
 			// The hub closed the channel.

@@ -41,18 +41,17 @@ func (h *Hub) Run() {
 				h.rooms[roomJoin.roomId] = make(map[*Client]bool)
 				h.broadcast[roomJoin.roomId] = make(chan []byte)
 				h.rebuildChannelAggregator(&agg)
-				fmt.Println("One:", agg)
+				fmt.Println("Created New Room:", roomJoin.roomId)
 			}
 			h.rooms[roomJoin.roomId][roomJoin.client] = true
 			fmt.Println("Two:", agg)
-		/*case client := <-h.unregister:
-		if _, ok := h.clients[client]; ok {
-			delete(h.clients, client)
-			close(client.send)
-		}*/
-
+		case client := <-h.unregister:
+			if _, ok := h.rooms[client.room][client]; ok {
+				delete(h.rooms[client.room], client)
+				close(client.send)
+				fmt.Println("Left")
+			}
 		case roomMessages := <-agg:
-			fmt.Println("Called: ", roomMessages)
 			for client := range h.rooms[roomMessages.room] {
 				select {
 				case client.send <- roomMessages.broadcastMessage:

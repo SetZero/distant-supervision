@@ -26,7 +26,7 @@ export class WebRTC {
     private video;
     private videoState = ShareState.INITAL;
     private readonly myId = this.generatRandomId(36);
-    private myRoom = "CHANGEME"
+    private myRoom = window.location.hash || "DEFAULT";
 
     constructor(video: React.RefObject<HTMLVideoElement>, finishedLoading: React.Dispatch<React.SetStateAction<boolean>>) {
         console.log("created object")
@@ -98,6 +98,7 @@ export class WebRTC {
         await this.peerConnection.setLocalDescription(desc);
         let data = await JSON.stringify({ 'id': this.myId, 'sendOffer': desc });
         this.conn.send(data);
+        console.log("out offer");
     }
 
     private async acceptCall(message: any) {
