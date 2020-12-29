@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -34,8 +35,9 @@ type ConnectionState int32
 
 const(
 	INITIAL ConnectionState = 0
-	CONNECTED = 1
-	DISCONNECTED = 2
+	WAITING_FOR_STREAM = 1
+	CONNECTED = 2
+	DISCONNECTED = 3
 )
 
 // Client is a middleman between the websocket connection and the hub.
@@ -51,6 +53,8 @@ type Client struct {
 	state ConnectionState
 
 	room string
+
+	mu      sync.Mutex // todo
 }
 
 type RoomJoin struct {
@@ -64,35 +68,6 @@ type RoomJoin struct {
 func NewClient(hub *Hub, conn *websocket.Conn) Client {
 	return Client{hub: hub, conn: conn, send: make(chan []byte, 16384), state: INITIAL}
 }
-
-// readPump pumps messages from the websocket connection to the hub.
-//
-// The application runs readPump in a per-connection goroutine. The application
-// ensures that there is at most one reader on a connection by executing all
-// reads from this goroutine.
-/*func (c *Client) readPump() {
-	defer func() {
-		c.hub.unregister <- c
-		c.conn.Close()
-	}()
-	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
-	for {
-		_, message, err := c.conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
-			}
-			break
-		}
-		var sb strings.Builder
-		sb.Write(bytes.TrimSpace(bytes.Replace(message, newline, space, -1)))
-		sb.WriteByte('\n')
-		message = []byte(sb.String())
-		c.hub.broadcast <- message
-	}
-}*/
 
 // writePump pumps messages from the hub to the websocket connection.
 //
@@ -165,6 +140,8 @@ func (c *Client) ReadPump() {
 		case INITIAL:
 			c.handleInitialMessage(message)
 			break
+		case WAITING_FOR_STREAM:
+			c.handleStreamerMessage(message)
 		case CONNECTED:
 			var sb strings.Builder
 			sb.Write(bytes.TrimSpace(bytes.Replace(message, newline, space, -1)))
@@ -227,9 +204,34 @@ func (c *Client) handleInitialMessage(message []byte) {
 		errorMessage.writeError(c.conn)
 	} else {
 		c.hub.register <- &RoomJoin{client: c, roomId: rj.RoomId}
-		c.state = CONNECTED
-		sendMessageWrapper(c.conn, MessageWrapper{Type: JoinRoomSuccessType})
+		if c.hub.rooms[rj.RoomId] != nil && c.hub.rooms[rj.RoomId].streamer != nil {
+			c.state = CONNECTED
+		} else {
+			c.state = WAITING_FOR_STREAM
+		}
+
 		c.room = rj.RoomId
 		fmt.Println("joined!")
+	}
+}
+
+func (c *Client) handleStreamerMessage(message []byte) {
+	var m MessageWrapper
+	err := json.Unmarshal(message, &m)
+	if err != nil {
+		fmt.Println("There was an error while trying to decode message")
+		return
+	}
+	switch m.Type {
+	case StartStreamType:
+		if c.hub.rooms[c.room].streamer == nil {
+			c.hub.rooms[c.room].streamer = c
+			for client := range c.hub.rooms[c.room].clients {
+				m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
+				sendMessageWrapper(client.conn, MessageWrapper{Type: JoinRoomSuccessType, Message: m})
+				c.state = CONNECTED
+			}
+		}
+		break
 	}
 }

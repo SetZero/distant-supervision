@@ -27,8 +27,9 @@ export class WebRTC {
     private videoState = ShareState.INITAL;
     private readonly myId = this.generatRandomId(36);
     private myRoom = window.location.hash || "DEFAULT";
+    private setActiveCall: React.Dispatch<React.SetStateAction<boolean>>
 
-    constructor(video: React.RefObject<HTMLVideoElement>, finishedLoading: React.Dispatch<React.SetStateAction<boolean>>) {
+    constructor(video: React.RefObject<HTMLVideoElement>, finishedLoading: React.Dispatch<React.SetStateAction<boolean>>, setActiveCall: React.Dispatch<React.SetStateAction<boolean>>) {
         console.log("created object")
         this.video = video;
         this.startSignaling(window.location.hash).then((c) => {
@@ -45,8 +46,8 @@ export class WebRTC {
             });
             finishedLoading(true);
         });
+        this.setActiveCall = setActiveCall
     }
-
     public setOutputVideo(video: React.RefObject<HTMLVideoElement>) {
         this.video = video;
     }
@@ -81,7 +82,8 @@ export class WebRTC {
         console.log("start call");
         // @ts-ignore
         this.stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-        this.peerConnection = new RTCPeerConnection(configuration);
+         this.conn.send(JSON.stringify({ type: "startStream" }))
+        /*this.peerConnection = new RTCPeerConnection(configuration);
         this.conn.send(JSON.stringify({ 'id': this.myId, 'incomingCall': true }));
         this.peerConnection.addEventListener('icecandidate', e => this.onIceCandidate(this.peerConnection, e));
         this.peerConnection.addEventListener('iceconnectionstatechange', e => this.onIceStateChange(this.peerConnection, e));
@@ -91,7 +93,7 @@ export class WebRTC {
             offerToReceiveAudio: false,
             offerToReceiveVideo: true
         });
-        await this.onCreateOfferSuccess(offer);
+        await this.onCreateOfferSuccess(offer);*/
     }
 
     private async onCreateOfferSuccess(desc: RTCSessionDescriptionInit) {
@@ -129,6 +131,7 @@ export class WebRTC {
                     console.log("There was an error while performing websocket communication: ", message.message.Type);
                     break;
                 case "joinedMessage":
+                    this.setActiveCall(message.message.roomHasStreamer)
                     console.log("successfully joined room!");
                     break;
             }

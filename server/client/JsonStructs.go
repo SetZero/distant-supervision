@@ -12,6 +12,8 @@ const(
 	ErrorMessageType MessageType = "error"
 	JoinMessageType = "joinMessage"
 	JoinRoomSuccessType = "joinedMessage"
+	StartStreamType = "startStream"
+	RequestStreamerType = "requestStreamer"
 )
 
 type ErrorType string
@@ -33,6 +35,10 @@ type JoinRoomMessage struct {
 type ErrorMessage struct {
 	Type ErrorType
 	Description string
+}
+
+type StreamerMessage struct {
+	RoomHasStreamer bool `json:"roomHasStreamer"`
 }
 
 func (e *ErrorMessage) writeError(conn *websocket.Conn) {
