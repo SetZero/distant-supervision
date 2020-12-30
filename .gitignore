@@ -2,3 +2,5 @@
 frontend/.eslintcache
 
 frontend/yarn.lock
+
+*.ivf
