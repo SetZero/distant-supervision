@@ -5,20 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pion/rtcp"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc"
-	"github.com/pion/webrtc/pkg/media"
-	"github.com/pion/webrtc/pkg/media/ivfwriter"
-	"os"
 	"time"
 )
 
-type WebRTC struct {
+type WebRTCStreamer struct {
 	peerConnection *webrtc.PeerConnection
 	Send           chan []byte
 	Recv           chan []byte
+	WebRtcStream   chan *rtp.Packet
 }
 
-func NewWebRTC() *WebRTC {
+func NewWebRTCStreamer() *WebRTCStreamer {
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
@@ -35,7 +34,7 @@ func NewWebRTC() *WebRTC {
 	}
 	api := webrtc.NewAPI(webrtc.WithMediaEngine(&m))
 	peerConnection, err := api.NewPeerConnection(config)
-	rtc := &WebRTC{Send: make(chan []byte, 16384), Recv: make(chan []byte, 16384), peerConnection: peerConnection}
+	rtc := &WebRTCStreamer{Send: make(chan []byte, 16384), Recv: make(chan []byte, 16384), peerConnection: peerConnection}
 
 	outputTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, "video", "pion")
 	rtpSender, err := peerConnection.AddTrack(outputTrack)
@@ -68,30 +67,8 @@ func Decode(in string, obj interface{}) {
 	}
 }
 
-func saveToDisk(i media.Writer, track *webrtc.TrackRemote) {
-	defer func() {
-		if err := i.Close(); err != nil {
-			panic(err)
-		}
-	}()
 
-	for {
-		rtpPacket, _, err := track.ReadRTP()
-		if err != nil {
-			panic(err)
-		}
-		if err := i.WriteRTP(rtpPacket); err != nil {
-			panic(err)
-		}
-	}
-}
-
-
-func (r *WebRTC) Start() {
-	ivfFile, err := ivfwriter.New("output.ivf")
-	if err != nil {
-		panic(err)
-	}
+func (r *WebRTCStreamer) Start() {
 	r.peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		go func() {
 			ticker := time.NewTicker(time.Second * 3)
@@ -106,8 +83,13 @@ func (r *WebRTC) Start() {
 		fmt.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().MimeType)
 		codec := track.Codec()
 		if codec.MimeType == "video/VP8" {
-			fmt.Println("Got VP8 track, saving to disk as output.ivf")
-			saveToDisk(ivfFile, track)
+			for {
+				rtpPkg, _, readErr := track.ReadRTP()
+				if readErr != nil {
+					panic(readErr)
+				}
+				r.WebRtcStream <- rtpPkg
+			}
 		}
 	})
 
@@ -116,13 +98,7 @@ func (r *WebRTC) Start() {
 		if connectionState == webrtc.ICEConnectionStateFailed ||
 			connectionState == webrtc.ICEConnectionStateDisconnected {
 
-			closeErr := ivfFile.Close()
-			if closeErr != nil {
-				panic(closeErr)
-			}
-
 			fmt.Println("Done writing media files")
-			os.Exit(0)
 		}
 	})
 

@@ -85,7 +85,7 @@ export class WebRTC {
          this.conn.send(JSON.stringify({ type: "startStream" }))
     }
 
-    public async startWebRTC() {
+    public async startWebRTCStream() {
         this.peerConnection = new RTCPeerConnection(configuration);
         // this.conn.send(JSON.stringify({ 'id': this.myId, 'incomingCall': true }));
         this.peerConnection.addEventListener('icecandidate', e => this.onIceCandidate(this.peerConnection, e));
@@ -140,7 +140,7 @@ export class WebRTC {
                 case "startStream":
                     if(message.message.startStreamSuccess) {
                         console.log("ok!")
-                        this.startWebRTC();
+                        this.startWebRTCStream();
                     } else {
                         console.log("someone else is streaming...")
                     }

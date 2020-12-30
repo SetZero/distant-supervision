@@ -1,7 +1,8 @@
 FROM golang:1.15.6
 WORKDIR /workdir
 COPY . .
-RUN go get -d -v github.com/gorilla/websocket \
+RUN  go get -d -v github.com/gorilla/websocket \
+  && go get -d -v github.com/pion/webrtc \
   && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o backend .
 
 FROM alpine:latest

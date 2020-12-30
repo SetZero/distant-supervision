@@ -33,10 +33,11 @@ var (
 type ConnectionState int32
 
 const (
-	INITIAL            ConnectionState = 0
-	WAITING_FOR_STREAM                 = 1
-	CONNECTED                          = 2
-	DISCONNECTED                       = 3
+	Initial          ConnectionState = 0
+	WaitingForStream                 = 1
+	Connected                        = 2
+	Viewer                           = 4
+	Disconnected                     = 5
 )
 
 // Client is a middleman between the websocket connection and the hub.
@@ -57,7 +58,8 @@ type Client struct {
 
 	mu sync.Mutex // todo
 
-	webRTC *rtc.WebRTC
+	webRTCStreamer *rtc.WebRTCStreamer
+	webRTCViewer *rtc.WebRTCViewer
 }
 
 type RoomJoin struct {
@@ -69,7 +71,7 @@ type RoomJoin struct {
 }
 
 func NewClient(hub *Hub, conn *websocket.Conn) Client {
-	return Client{hub: hub, conn: conn, send: make(chan []byte, 16384), recv: make(chan []byte, 16384), state: INITIAL}
+	return Client{hub: hub, conn: conn, send: make(chan []byte, 16384), recv: make(chan []byte, 16384), state: Initial}
 }
 
 // writePump pumps messages from the hub to the websocket connection.
@@ -139,21 +141,21 @@ func (c *Client) ReadPump() {
 		}
 
 		switch c.state {
-		case INITIAL:
+		case Initial:
 			c.handleInitialMessage(message)
 			break
-		case WAITING_FOR_STREAM:
+		case WaitingForStream:
 			c.handleStreamerMessage(message)
-		case CONNECTED:
+		case Connected:
 			c.recv <- message
 			break
-		case DISCONNECTED:
+		case Disconnected:
 
 		}
 	}
 }
 
-func (c *Client) readMessages(ticker *time.Ticker) bool {
+func (c *Client) readStreamerMessages(ticker *time.Ticker) bool {
 	for {
 		select {
 		case message, ok := <-c.recv:
@@ -163,8 +165,8 @@ func (c *Client) readMessages(ticker *time.Ticker) bool {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return true
 			}
-			c.webRTC.Recv <- message
-		case message := <-c.webRTC.Send:
+			c.webRTCStreamer.Recv <- message
+		case message := <-c.webRTCStreamer.Send:
 			sendMessageWrapper(c.conn, MessageWrapper{Type: AnswerType, Message: message})
 			break
 		case <-ticker.C:
@@ -173,6 +175,12 @@ func (c *Client) readMessages(ticker *time.Ticker) bool {
 				return true
 			}
 		}
+	}
+}
+
+func (c *Client) readViewerMessages(ticker *time.Ticker) bool {
+	for {
+
 	}
 }
 
@@ -187,9 +195,10 @@ func (c *Client) handleInitialMessage(message []byte) {
 	} else {
 		c.hub.register <- &RoomJoin{client: c, roomId: rj.RoomId}
 		if c.hub.rooms[rj.RoomId] != nil && c.hub.rooms[rj.RoomId].streamer != nil {
-			c.setStateToConnected()
+			c.webRTCViewer = rtc.NewWebRTCViewer()
+			c.setStateToViewer()
 		} else {
-			c.state = WAITING_FOR_STREAM
+			c.state = WaitingForStream
 		}
 
 		c.room = rj.RoomId
@@ -197,10 +206,17 @@ func (c *Client) handleInitialMessage(message []byte) {
 	}
 }
 
+func (c *Client) setStateToViewer() {
+	if c.state != Viewer {
+		c.state = Viewer
+		go c.readViewerMessages(time.NewTicker(pingPeriod))
+	}
+}
+
 func (c *Client) setStateToConnected() {
-	if c.state != CONNECTED {
-		c.state = CONNECTED
-		go c.readMessages(time.NewTicker(pingPeriod))
+	if c.state != Connected {
+		c.state = Connected
+		go c.readStreamerMessages(time.NewTicker(pingPeriod))
 	}
 }
 
@@ -220,8 +236,8 @@ func (c *Client) handleStreamerMessage(message []byte) {
 			c.hub.rooms[c.room].streamer = c
 			m, _ := json.Marshal(StartStreamInfoMessage{StreamStartSuccess: true})
 			sendMessageWrapper(c.conn, MessageWrapper{Type: StartStreamType, Message: m})
-			c.webRTC = rtc.NewWebRTC()
-			go c.webRTC.Start()
+			c.webRTCStreamer = rtc.NewWebRTCStreamer()
+			go c.webRTCStreamer.Start()
 			for client := range c.hub.rooms[c.room].clients {
 				m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
 				sendMessageWrapper(client.conn, MessageWrapper{Type: JoinRoomSuccessType, Message: m})
