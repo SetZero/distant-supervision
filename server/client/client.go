@@ -1,11 +1,10 @@
 package client
 
 import (
-	"bytes"
+	"../rtc"
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -33,11 +32,11 @@ var (
 
 type ConnectionState int32
 
-const(
-	INITIAL ConnectionState = 0
-	WAITING_FOR_STREAM = 1
-	CONNECTED = 2
-	DISCONNECTED = 3
+const (
+	INITIAL            ConnectionState = 0
+	WAITING_FOR_STREAM                 = 1
+	CONNECTED                          = 2
+	DISCONNECTED                       = 3
 )
 
 // Client is a middleman between the websocket connection and the hub.
@@ -50,11 +49,15 @@ type Client struct {
 	// Buffered channel of outbound messages.
 	send chan []byte
 
+	recv chan []byte
+
 	state ConnectionState
 
 	room string
 
-	mu      sync.Mutex // todo
+	mu sync.Mutex // todo
+
+	webRTC *rtc.WebRTC
 }
 
 type RoomJoin struct {
@@ -66,7 +69,7 @@ type RoomJoin struct {
 }
 
 func NewClient(hub *Hub, conn *websocket.Conn) Client {
-	return Client{hub: hub, conn: conn, send: make(chan []byte, 16384), state: INITIAL}
+	return Client{hub: hub, conn: conn, send: make(chan []byte, 16384), recv: make(chan []byte, 16384), state: INITIAL}
 }
 
 // writePump pumps messages from the hub to the websocket connection.
@@ -117,7 +120,6 @@ func (c *Client) WritePump() {
 }
 
 func (c *Client) ReadPump() {
-	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		c.conn.Close()
 		c.hub.unregister <- c
@@ -143,14 +145,7 @@ func (c *Client) ReadPump() {
 		case WAITING_FOR_STREAM:
 			c.handleStreamerMessage(message)
 		case CONNECTED:
-			var sb strings.Builder
-			sb.Write(bytes.TrimSpace(bytes.Replace(message, newline, space, -1)))
-			sb.WriteByte('\n')
-			msg := []byte(sb.String())
-			c.hub.broadcast[c.room] <- msg
-			if c.readMessages(ticker) {
-				return
-			}
+			c.recv <- message
 			break
 		case DISCONNECTED:
 
@@ -159,39 +154,26 @@ func (c *Client) ReadPump() {
 }
 
 func (c *Client) readMessages(ticker *time.Ticker) bool {
-	select {
-	case message, ok := <-c.send:
-		c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-		if !ok {
-			// The hub closed the channel.
-			c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-			return true
-		}
-
-		w, err := c.conn.NextWriter(websocket.TextMessage)
-		if err != nil {
-			return true
-		}
-		w.Write(message)
-		fmt.Printf("Sent Message: %s\n", message)
-
-		// Add queued chat messages to the current websocket message.
-		n := len(c.send)
-		for i := 0; i < n; i++ {
-			w.Write(newline)
-			w.Write(<-c.send)
-		}
-
-		if err := w.Close(); err != nil {
-			return true
-		}
-	case <-ticker.C:
-		c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-		if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-			return true
+	for {
+		select {
+		case message, ok := <-c.recv:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				// The hub closed the channel.
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return true
+			}
+			c.webRTC.Recv <- message
+		case message := <-c.webRTC.Send:
+			sendMessageWrapper(c.conn, MessageWrapper{Type: AnswerType, Message: message})
+			break
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return true
+			}
 		}
 	}
-	return false
 }
 
 func (c *Client) handleInitialMessage(message []byte) {
@@ -205,13 +187,20 @@ func (c *Client) handleInitialMessage(message []byte) {
 	} else {
 		c.hub.register <- &RoomJoin{client: c, roomId: rj.RoomId}
 		if c.hub.rooms[rj.RoomId] != nil && c.hub.rooms[rj.RoomId].streamer != nil {
-			c.state = CONNECTED
+			c.setStateToConnected()
 		} else {
 			c.state = WAITING_FOR_STREAM
 		}
 
 		c.room = rj.RoomId
 		fmt.Println("joined!")
+	}
+}
+
+func (c *Client) setStateToConnected() {
+	if c.state != CONNECTED {
+		c.state = CONNECTED
+		go c.readMessages(time.NewTicker(pingPeriod))
 	}
 }
 
@@ -224,13 +213,23 @@ func (c *Client) handleStreamerMessage(message []byte) {
 	}
 	switch m.Type {
 	case StartStreamType:
+		defer c.hub.rooms[c.room].mu.Unlock()
+		c.hub.rooms[c.room].mu.Lock()
+
 		if c.hub.rooms[c.room].streamer == nil {
 			c.hub.rooms[c.room].streamer = c
+			m, _ := json.Marshal(StartStreamInfoMessage{StreamStartSuccess: true})
+			sendMessageWrapper(c.conn, MessageWrapper{Type: StartStreamType, Message: m})
+			c.webRTC = rtc.NewWebRTC()
+			go c.webRTC.Start()
 			for client := range c.hub.rooms[c.room].clients {
 				m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
 				sendMessageWrapper(client.conn, MessageWrapper{Type: JoinRoomSuccessType, Message: m})
-				c.state = CONNECTED
+				c.setStateToConnected()
 			}
+		} else {
+			m, _ := json.Marshal(StartStreamInfoMessage{StreamStartSuccess: false})
+			sendMessageWrapper(c.conn, MessageWrapper{Type: StartStreamType, Message: m})
 		}
 		break
 	}

@@ -2,6 +2,8 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
+	"sync"
 )
 
 type RoomMessage struct {
@@ -13,6 +15,7 @@ type RoomInfo struct {
 	roomName string
 	clients map[*Client]bool
 	streamer *Client
+	mu      sync.Mutex
 }
 
 // Hub maintains the set of active clients and broadcasts messages to the
@@ -68,6 +71,7 @@ func (h *Hub) Run() {
 				}
 				delete(h.rooms[client.room].clients, client)
 				close(client.send)
+				fmt.Println("removed!")
 			}
 		case roomMessages := <-agg:
 			for client := range h.rooms[roomMessages.room].clients {

@@ -83,8 +83,11 @@ export class WebRTC {
         // @ts-ignore
         this.stream = await navigator.mediaDevices.getDisplayMedia(constraints);
          this.conn.send(JSON.stringify({ type: "startStream" }))
-        /*this.peerConnection = new RTCPeerConnection(configuration);
-        this.conn.send(JSON.stringify({ 'id': this.myId, 'incomingCall': true }));
+    }
+
+    public async startWebRTC() {
+        this.peerConnection = new RTCPeerConnection(configuration);
+        // this.conn.send(JSON.stringify({ 'id': this.myId, 'incomingCall': true }));
         this.peerConnection.addEventListener('icecandidate', e => this.onIceCandidate(this.peerConnection, e));
         this.peerConnection.addEventListener('iceconnectionstatechange', e => this.onIceStateChange(this.peerConnection, e));
         this.stream.getTracks().forEach((track: MediaStreamTrack) => this.peerConnection.addTrack(track, this.stream));
@@ -93,14 +96,14 @@ export class WebRTC {
             offerToReceiveAudio: false,
             offerToReceiveVideo: true
         });
-        await this.onCreateOfferSuccess(offer);*/
+        await this.onCreateOfferSuccess(offer);
     }
 
     private async onCreateOfferSuccess(desc: RTCSessionDescriptionInit) {
-        await this.peerConnection.setLocalDescription(desc);
-        let data = await JSON.stringify({ 'id': this.myId, 'sendOffer': desc });
-        this.conn.send(data);
         console.log("out offer");
+        await this.peerConnection.setLocalDescription(desc);
+        let data = await JSON.stringify({ 'type': "webRtcOffer", message: { 'offer': btoa(JSON.stringify(desc)) } });
+        this.conn.send(data);
     }
 
     private async acceptCall(message: any) {
@@ -134,6 +137,17 @@ export class WebRTC {
                     this.setActiveCall(message.message.roomHasStreamer)
                     console.log("successfully joined room!");
                     break;
+                case "startStream":
+                    if(message.message.startStreamSuccess) {
+                        console.log("ok!")
+                        this.startWebRTC();
+                    } else {
+                        console.log("someone else is streaming...")
+                    }
+                    break;
+                case "answer":
+                    this.peerConnection.setRemoteDescription(message.message);
+                    break;
             }
         }
     }
@@ -152,8 +166,8 @@ export class WebRTC {
     }
 
     private async onIceCandidate(pc: RTCPeerConnection, event: RTCPeerConnectionIceEvent) {
-        console.log("called ice!", pc);
-        this.conn.send(JSON.stringify({ 'id': this.myId, 'sendIceCanidate': event.candidate }));
+        console.log("called ice!", event.candidate);
+        this.conn.send(JSON.stringify({ 'type': 'iceCandidate', 'message': event.candidate  }));
     }
 
     private onIceStateChange(pc: RTCPeerConnection, event: Event) {
