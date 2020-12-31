@@ -1,20 +1,10 @@
 package client
 
 import (
+	"../messages"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
-)
-
-type MessageType string
-
-const(
-	ErrorMessageType MessageType = "error"
-	JoinMessageType = "joinMessage"
-	JoinRoomSuccessType = "joinedMessage"
-	StartStreamType = "startStream"
-	RequestStreamerType = "requestStreamer"
-	AnswerType = "answer"
 )
 
 type ErrorType string
@@ -25,7 +15,7 @@ const(
 )
 
 type MessageWrapper struct {
-	Type MessageType `json:"type"`
+	Type messages.MessageType `json:"type"`
 	Message json.RawMessage `json:"message"`
 }
 
@@ -48,7 +38,7 @@ type StartStreamInfoMessage struct {
 
 func (e *ErrorMessage) writeError(conn *websocket.Conn) {
 	m, _  := json.Marshal(e)
-	sendMessageWrapper(conn, MessageWrapper{Type: ErrorMessageType, Message: m})
+	sendMessageWrapper(conn, MessageWrapper{Type: messages.ErrorMessageType, Message: m})
 }
 
 func sendMessageWrapper(conn *websocket.Conn, message MessageWrapper) {

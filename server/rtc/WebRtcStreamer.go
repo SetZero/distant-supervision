@@ -1,6 +1,7 @@
 package rtc
 
 import (
+	"../messages"
 	"encoding/json"
 	"fmt"
 	"github.com/pion/rtcp"
@@ -11,7 +12,7 @@ import (
 
 type WebRTCStreamer struct {
 	peerConnection *webrtc.PeerConnection
-	send           chan []byte
+	send           chan OutputMessage
 	recv           chan []byte
 	WebRtcStream   chan *rtp.Packet
 }
@@ -19,14 +20,14 @@ type WebRTCStreamer struct {
 func NewWebRTCStreamer() *WebRTCStreamer {
 	connectionInfo, err := createPeerConnection(true)
 	if err == nil && connectionInfo != nil {
-		rtc := &WebRTCStreamer{send: make(chan []byte, 16384), recv: make(chan []byte, 16384), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *rtp.Packet)}
+		rtc := &WebRTCStreamer{send: make(chan OutputMessage, 16384), recv: make(chan []byte, 16384), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *rtp.Packet)}
 		return rtc
 	} else {
 		return nil
 	}
 }
 
-func (r *WebRTCStreamer) Send() chan []byte {
+func (r *WebRTCStreamer) Send() chan OutputMessage {
 	return r.send
 }
 
@@ -75,7 +76,7 @@ func (r *WebRTCStreamer) Start() {
 		err := json.Unmarshal(webRTCMessage, &m)
 		if err == nil {
 			switch m.Type {
-			case webRTCOffer:
+			case WebRTCOffer:
 				fmt.Println("check")
 				var offerMessage webRtcOffer
 				json.Unmarshal(m.Message, &offerMessage)
@@ -93,13 +94,13 @@ func (r *WebRTCStreamer) Start() {
 				if err != nil {
 					panic(err)
 				}
-				r.send <- jsonAnswer
+				r.send <- OutputMessage{Data: jsonAnswer, Type: messages.AnswerType}
 
 				if err = r.peerConnection.SetLocalDescription(answer); err != nil {
 					panic(err)
 				}
 				break
-			case iceCandidate:
+			case IceCandidate:
 				var iceandidate webrtc.ICECandidateInit
 				json.Unmarshal(m.Message, &iceandidate)
 				err := r.peerConnection.AddICECandidate(iceandidate)

@@ -1,12 +1,15 @@
 package rtc
 
-import "encoding/json"
+import (
+	"../messages"
+	"encoding/json"
+)
 
 type MessageType string
 
 const(
-	webRTCOffer MessageType = "webRtcOffer"
-	iceCandidate = "iceCandidate"
+	WebRTCOffer  MessageType = "webRtcOffer"
+	IceCandidate             = "iceCandidate"
 )
 
 type messageWrapper struct {
@@ -20,4 +23,9 @@ type webRtcOffer struct {
 
 type webRtcIceCanidate struct {
 	Candidate string `json:"candidate"`
+}
+
+type OutputMessage struct {
+	Data []byte
+	Type messages.MessageType
 }

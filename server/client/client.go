@@ -1,6 +1,7 @@
 package client
 
 import (
+	"../messages"
 	"../rtc"
 	"encoding/json"
 	"fmt"
@@ -196,7 +197,7 @@ func (c *Client) readMessages(ticker *time.Ticker) bool {
 
 			c.getStateObject().Recv() <- message
 		case message := <-c.getStateObject().Send():
-			sendMessageWrapper(c.conn, MessageWrapper{Type: AnswerType, Message: message})
+			sendMessageWrapper(c.conn, MessageWrapper{Type: message.Type, Message: message.Data})
 			break
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
@@ -256,19 +257,19 @@ func (c *Client) handleStreamerMessage(message []byte) {
 		return
 	}
 	switch m.Type {
-	case StartStreamType:
+	case messages.StartStreamType:
 		defer c.hub.rooms[c.room].mu.Unlock()
 		c.hub.rooms[c.room].mu.Lock()
 
 		if c.hub.rooms[c.room].streamer == nil {
 			c.hub.rooms[c.room].streamer = c
 			m, _ := json.Marshal(StartStreamInfoMessage{StreamStartSuccess: true})
-			sendMessageWrapper(c.conn, MessageWrapper{Type: StartStreamType, Message: m})
+			sendMessageWrapper(c.conn, MessageWrapper{Type: messages.StartStreamType, Message: m})
 			c.setStateToStreamer()
 			go c.webRTCStreamer.Start()
 			for client := range c.hub.rooms[c.room].clients {
 				m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
-				sendMessageWrapper(client.conn, MessageWrapper{Type: JoinRoomSuccessType, Message: m})
+				sendMessageWrapper(client.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
 				if client != c {
 					client.setStateToViewer()
 					go client.webRTCViewer.Start()
@@ -276,7 +277,7 @@ func (c *Client) handleStreamerMessage(message []byte) {
 			}
 		} else {
 			m, _ := json.Marshal(StartStreamInfoMessage{StreamStartSuccess: false})
-			sendMessageWrapper(c.conn, MessageWrapper{Type: StartStreamType, Message: m})
+			sendMessageWrapper(c.conn, MessageWrapper{Type: messages.StartStreamType, Message: m})
 		}
 		break
 	}

@@ -1,6 +1,7 @@
 package client
 
 import (
+	"../messages"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -55,7 +56,7 @@ func (h *Hub) Run() {
 			}
 			h.rooms[roomJoin.roomId].clients[roomJoin.client] = true
 			m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: h.rooms[roomJoin.roomId].streamer != nil})
-			sendMessageWrapper(roomJoin.client.conn, MessageWrapper{Type: JoinRoomSuccessType, Message: m})
+			sendMessageWrapper(roomJoin.client.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
 		case client := <-h.unregister:
 			if _, ok := h.rooms[client.room]; !ok {
 				break
@@ -65,7 +66,7 @@ func (h *Hub) Run() {
 					h.rooms[client.room].streamer = nil
 					m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: false})
 					for clients := range h.rooms[client.room].clients {
-						sendMessageWrapper(clients.conn, MessageWrapper{Type: JoinRoomSuccessType, Message: m})
+						sendMessageWrapper(clients.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
 					}
 
 				}

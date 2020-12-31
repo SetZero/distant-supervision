@@ -1,6 +1,7 @@
 package rtc
 
 import (
+	"../messages"
 	"encoding/json"
 	"fmt"
 	"github.com/pion/rtp"
@@ -9,7 +10,7 @@ import (
 
 type WebRTCViewer struct {
 	peerConnection *webrtc.PeerConnection
-	send           chan []byte
+	send           chan OutputMessage
 	recv           chan []byte
 	WebRtcStream   chan *rtp.Packet
 	outputTrack    *webrtc.TrackLocalStaticRTP
@@ -18,14 +19,14 @@ type WebRTCViewer struct {
 func NewWebRTCViewer() *WebRTCViewer {
 	connectionInfo, err := createPeerConnection(false)
 	if err == nil && connectionInfo != nil {
-		rtc := &WebRTCViewer{send: make(chan []byte, 16384), recv: make(chan []byte, 16384), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *rtp.Packet), outputTrack: connectionInfo.outputTrack}
+		rtc := &WebRTCViewer{send: make(chan OutputMessage, 16384), recv: make(chan []byte, 16384), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *rtp.Packet), outputTrack: connectionInfo.outputTrack}
 		return rtc
 	} else {
 		return nil
 	}
 }
 
-func (r *WebRTCViewer) Send() chan []byte {
+func (r *WebRTCViewer) Send() chan OutputMessage {
 	return r.send
 }
 
@@ -56,6 +57,17 @@ func (r *WebRTCViewer) Start() {
 		}
 	})
 
+	r.peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+		fmt.Println("Canidate: ", candidate)
+		if candidate == nil { return }
+		 iceCandidate, err := json.Marshal(candidate.ToJSON())
+		if err != nil || iceCandidate == nil {
+			println("Error with Ice canidate")
+			return
+		}
+		r.send <- OutputMessage{Data: iceCandidate, Type: messages.IceCandidate}
+	})
+
 	for {
 		webRTCMessage := <-r.recv
 
@@ -63,7 +75,7 @@ func (r *WebRTCViewer) Start() {
 		err := json.Unmarshal(webRTCMessage, &m)
 		if err == nil {
 			switch m.Type {
-			case webRTCOffer:
+			case WebRTCOffer:
 				var offerMessage webRtcOffer
 				json.Unmarshal(m.Message, &offerMessage)
 				offer := webrtc.SessionDescription{}
@@ -80,13 +92,13 @@ func (r *WebRTCViewer) Start() {
 				if err != nil {
 					panic(err)
 				}
-				r.send <- jsonAnswer
+				r.send <- OutputMessage{Data: jsonAnswer, Type: messages.AnswerType}
 
 				if err = r.peerConnection.SetLocalDescription(answer); err != nil {
 					panic(err)
 				}
 				break
-			case iceCandidate:
+			case IceCandidate:
 				var iceandidate webrtc.ICECandidateInit
 				json.Unmarshal(m.Message, &iceandidate)
 				err := r.peerConnection.AddICECandidate(iceandidate)

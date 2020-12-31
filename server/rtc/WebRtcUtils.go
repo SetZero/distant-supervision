@@ -8,7 +8,7 @@ import (
 )
 
 type WebRtcClient interface {
-	Send() chan []byte
+	Send() chan OutputMessage
 	Recv() chan []byte
 }
 

@@ -132,6 +132,10 @@ export class WebRTC {
                 case "answer":
                     this.peerConnection.setRemoteDescription(message.message);
                     break;
+                case "newIceCandidate":
+                    if(message.message === null) break;
+                    console.log("New Ice Candidate: ", message.message)
+                    this.peerConnection.addIceCandidate(message.message);
             }
     }
 
