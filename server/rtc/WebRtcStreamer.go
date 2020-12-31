@@ -69,6 +69,17 @@ func (r *WebRTCStreamer) Start() {
 		}
 	})
 
+	r.peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+		fmt.Println("Canidate: ", candidate)
+		if candidate == nil { return }
+		iceCandidate, err := json.Marshal(candidate.ToJSON())
+		if err != nil || iceCandidate == nil {
+			println("Error with Ice canidate")
+			return
+		}
+		r.send <- OutputMessage{Data: iceCandidate, Type: messages.IceCandidate}
+	})
+
 	for {
 		webRTCMessage := <-r.recv
 
