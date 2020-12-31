@@ -7,6 +7,8 @@ import (
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc"
+	"github.com/pion/webrtc/pkg/media"
+	"github.com/pion/webrtc/pkg/media/ivfwriter"
 	"time"
 )
 
@@ -35,7 +37,30 @@ func (r *WebRTCStreamer) Recv() chan []byte {
 	return r.recv
 }
 
+func saveToDisk(i media.Writer, track *webrtc.TrackRemote) {
+	defer func() {
+		if err := i.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	for {
+		rtpPacket, _, err := track.ReadRTP()
+		if err != nil {
+			panic(err)
+		}
+		if err := i.WriteRTP(rtpPacket); err != nil {
+			panic(err)
+		}
+	}
+}
+
 func (r *WebRTCStreamer) Start() {
+	ivfFile, err := ivfwriter.New("output.ivf")
+	if err != nil {
+		panic(err)
+	}
+
 	r.peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		go func() {
 			ticker := time.NewTicker(time.Second * 3)
@@ -55,6 +80,8 @@ func (r *WebRTCStreamer) Start() {
 				if readErr != nil {
 					panic(readErr)
 				}
+				fmt.Println("Got VP8 track, saving to disk as output.ivf")
+				saveToDisk(ivfFile, track)
 				r.WebRtcStream <- rtpPkg
 			}
 		}
@@ -64,6 +91,10 @@ func (r *WebRTCStreamer) Start() {
 		fmt.Printf("[Streamer] Connection State has changed %s \n", connectionState.String())
 		if connectionState == webrtc.ICEConnectionStateFailed ||
 			connectionState == webrtc.ICEConnectionStateDisconnected {
+			closeErr := ivfFile.Close()
+			if closeErr != nil {
+				panic(closeErr)
+			}
 
 			fmt.Println("Done writing media files")
 		}
@@ -101,6 +132,7 @@ func (r *WebRTCStreamer) Start() {
 				if err != nil {
 					panic(err)
 				}
+
 				jsonAnswer, err := json.Marshal(answer)
 				if err != nil {
 					panic(err)
