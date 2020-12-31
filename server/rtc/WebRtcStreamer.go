@@ -1,7 +1,6 @@
 package rtc
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/pion/rtcp"
@@ -12,61 +11,28 @@ import (
 
 type WebRTCStreamer struct {
 	peerConnection *webrtc.PeerConnection
-	Send           chan []byte
-	Recv           chan []byte
+	send           chan []byte
+	recv           chan []byte
 	WebRtcStream   chan *rtp.Packet
 }
 
 func NewWebRTCStreamer() *WebRTCStreamer {
-	config := webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: []string{"stun:stun.l.google.com:19302"},
-			},
-		},
-	}
-	m := webrtc.MediaEngine{}
-	if err := m.RegisterCodec(webrtc.RTPCodecParameters{
-		RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "video/VP8", ClockRate: 90000, Channels: 0, SDPFmtpLine: "", RTCPFeedback: nil},
-		PayloadType:        96,
-	}, webrtc.RTPCodecTypeVideo); err != nil {
-		panic(err)
-	}
-	api := webrtc.NewAPI(webrtc.WithMediaEngine(&m))
-	peerConnection, err := api.NewPeerConnection(config)
-	rtc := &WebRTCStreamer{Send: make(chan []byte, 16384), Recv: make(chan []byte, 16384), peerConnection: peerConnection}
-
-	outputTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, "video", "pion")
-	rtpSender, err := peerConnection.AddTrack(outputTrack)
-	go func() {
-		rtcpBuf := make([]byte, 1500)
-		for {
-			if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
-				fmt.Println("Error in rtp!")
-				return
-			}
-		}
-	}()
-
-	if err != nil {
-		return nil
-	} else {
+	connectionInfo, err := createPeerConnection(true)
+	if err == nil && connectionInfo != nil {
+		rtc := &WebRTCStreamer{send: make(chan []byte, 16384), recv: make(chan []byte, 16384), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *rtp.Packet)}
 		return rtc
+	} else {
+		return nil
 	}
 }
 
-func Decode(in string, obj interface{}) {
-	b, err := base64.StdEncoding.DecodeString(in)
-	if err != nil {
-		panic(err)
-	}
-
-	err = json.Unmarshal(b, obj)
-	if err != nil {
-		panic(err)
-	}
+func (r *WebRTCStreamer) Send() chan []byte {
+	return r.send
 }
 
+func (r *WebRTCStreamer) Recv() chan []byte {
+	return r.recv
+}
 
 func (r *WebRTCStreamer) Start() {
 	r.peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
@@ -94,7 +60,7 @@ func (r *WebRTCStreamer) Start() {
 	})
 
 	r.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("Connection State has changed %s \n", connectionState.String())
+		fmt.Printf("[Streamer] Connection State has changed %s \n", connectionState.String())
 		if connectionState == webrtc.ICEConnectionStateFailed ||
 			connectionState == webrtc.ICEConnectionStateDisconnected {
 
@@ -103,20 +69,21 @@ func (r *WebRTCStreamer) Start() {
 	})
 
 	for {
-		webRTCMessage := <-r.Recv
+		webRTCMessage := <-r.recv
 
 		var m messageWrapper
 		err := json.Unmarshal(webRTCMessage, &m)
 		if err == nil {
 			switch m.Type {
 			case webRTCOffer:
+				fmt.Println("check")
 				var offerMessage webRtcOffer
 				json.Unmarshal(m.Message, &offerMessage)
 				offer := webrtc.SessionDescription{}
 				Decode(offerMessage.Offer, &offer)
 				err = r.peerConnection.SetRemoteDescription(offer)
 				if err != nil {
-					fmt.Println("Error!")
+					fmt.Println("[Streamer] Error: ", err)
 				}
 				answer, err := r.peerConnection.CreateAnswer(nil)
 				if err != nil {
@@ -126,13 +93,11 @@ func (r *WebRTCStreamer) Start() {
 				if err != nil {
 					panic(err)
 				}
-				r.Send <- jsonAnswer
+				r.send <- jsonAnswer
 
-				//gatherComplete := webrtc.GatheringCompletePromise(r.peerConnection)
 				if err = r.peerConnection.SetLocalDescription(answer); err != nil {
 					panic(err)
 				}
-				// <-gatherComplete
 				break
 			case iceCandidate:
 				var iceandidate webrtc.ICECandidateInit

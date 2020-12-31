@@ -28,6 +28,7 @@ export class WebRTC {
     private readonly myId = this.generatRandomId(36);
     private myRoom = window.location.hash || "DEFAULT";
     private setActiveCall: React.Dispatch<React.SetStateAction<boolean>>
+    private webRtcStarted = false;
 
     constructor(video: React.RefObject<HTMLVideoElement>, finishedLoading: React.Dispatch<React.SetStateAction<boolean>>, setActiveCall: React.Dispatch<React.SetStateAction<boolean>>) {
         console.log("created object")
@@ -82,15 +83,17 @@ export class WebRTC {
         console.log("start call");
         // @ts-ignore
         this.stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-         this.conn.send(JSON.stringify({ type: "startStream" }))
+        this.showOwnVideo();
+        this.conn.send(JSON.stringify({ type: "startStream" }))
     }
 
-    public async startWebRTCStream() {
+    public async startWebRTC() {
         this.peerConnection = new RTCPeerConnection(configuration);
-        // this.conn.send(JSON.stringify({ 'id': this.myId, 'incomingCall': true }));
         this.peerConnection.addEventListener('icecandidate', e => this.onIceCandidate(this.peerConnection, e));
         this.peerConnection.addEventListener('iceconnectionstatechange', e => this.onIceStateChange(this.peerConnection, e));
-        this.stream.getTracks().forEach((track: MediaStreamTrack) => this.peerConnection.addTrack(track, this.stream));
+        this.peerConnection.addEventListener('track', e => this.gotRemoteStream(e));
+        if(this.stream)
+            this.stream.getTracks().forEach((track: MediaStreamTrack) => this.peerConnection.addTrack(track, this.stream));
 
         const offer = await this.peerConnection.createOffer({
             offerToReceiveAudio: false,
@@ -100,7 +103,6 @@ export class WebRTC {
     }
 
     private async onCreateOfferSuccess(desc: RTCSessionDescriptionInit) {
-        console.log("out offer");
         await this.peerConnection.setLocalDescription(desc);
         let data = await JSON.stringify({ 'type': "webRtcOffer", message: { 'offer': btoa(JSON.stringify(desc)) } });
         this.conn.send(data);
@@ -108,39 +110,21 @@ export class WebRTC {
 
     private async acceptCall(message: any) {
         console.log("message: ", message);
-        if (message.id === this.myId) return;
-
-        if (message.incomingCall && this.videoState === ShareState.INITAL) {
-            this.videoState = ShareState.IN_PROGRESS;
-            console.log("incoming call!");
-            this.peerConnection = new RTCPeerConnection(configuration);
-            this.peerConnection.addEventListener('icecandidate', e => this.onIceCandidate(this.peerConnection, e));
-            this.peerConnection.addEventListener('iceconnectionstatechange', e => this.onIceStateChange(this.peerConnection, e));
-            this.peerConnection.addEventListener('track', e => this.gotRemoteStream(e));
-        } else if (message.sendOffer && this.videoState === ShareState.IN_PROGRESS) {
-            console.log("Got Offer!");
-            await this.peerConnection.setRemoteDescription(message.sendOffer);
-            const answer = await this.peerConnection.createAnswer();
-            await this.onCreateAnswerSuccess(answer);
-        } else if (message.sendAnswer && this.videoState === ShareState.IN_PROGRESS) {
-            this.peerConnection.setRemoteDescription(message.sendAnswer);
-            console.log("Got Answer!");
-        } else if (message.sendIceCanidate && this.videoState === ShareState.IN_PROGRESS) {
-            this.peerConnection.addIceCandidate(message.sendIceCanidate);
-            console.log("Got ICE Canidate!");
-        } else if (message.type) {
             switch (message.type) {
                 case "error":
                     console.log("There was an error while performing websocket communication: ", message.message.Type);
                     break;
                 case "joinedMessage":
                     this.setActiveCall(message.message.roomHasStreamer)
-                    console.log("successfully joined room!");
+                    if(message.message.roomHasStreamer && !this.webRtcStarted) {
+                        this.webRtcStarted = true;
+                        this.startWebRTC();
+                    }
                     break;
                 case "startStream":
-                    if(message.message.startStreamSuccess) {
-                        console.log("ok!")
-                        this.startWebRTCStream();
+                    if(message.message.startStreamSuccess && !this.webRtcStarted) {
+                        this.webRtcStarted = true;
+                        this.startWebRTC();
                     } else {
                         console.log("someone else is streaming...")
                     }
@@ -149,19 +133,21 @@ export class WebRTC {
                     this.peerConnection.setRemoteDescription(message.message);
                     break;
             }
-        }
-    }
-
-    private async onCreateAnswerSuccess(desc: RTCSessionDescriptionInit) {
-        await this.peerConnection.setLocalDescription(desc);
-        this.conn.send(JSON.stringify({ 'id': this.myId, 'sendAnswer': desc }));
     }
 
     private gotRemoteStream(e: RTCTrackEvent) {
+        console.log("Got Stream!");
         this.videoState = ShareState.STABLE;
         if (this.video.current && this.video.current.srcObject !== e.streams[0]) {
             this.video.current.srcObject = e.streams[0];
             console.log('received remote stream');
+        }
+    }
+
+    private showOwnVideo() {
+        if (this.video.current) {
+            console.log(this.stream.getVideoTracks());
+            //this.video.current.srcObject = this.stream.getVideoTracks()[0];
         }
     }
 
@@ -172,6 +158,7 @@ export class WebRTC {
 
     private onIceStateChange(pc: RTCPeerConnection, event: Event) {
         if (pc) {
+            console.log(this.peerConnection)
             console.log(`${(pc)} ICE state: ${pc.iceConnectionState}`);
             console.log('ICE state change event: ', event);
             if (((event.target) as RTCPeerConnection)?.iceConnectionState === "disconnected") {

@@ -35,7 +35,7 @@ type ConnectionState int32
 const (
 	Initial          ConnectionState = 0
 	WaitingForStream                 = 1
-	Connected                        = 2
+	Streamer                         = 2
 	Viewer                           = 4
 	Disconnected                     = 5
 )
@@ -59,7 +59,7 @@ type Client struct {
 	mu sync.Mutex // todo
 
 	webRTCStreamer *rtc.WebRTCStreamer
-	webRTCViewer *rtc.WebRTCViewer
+	webRTCViewer   *rtc.WebRTCViewer
 }
 
 type RoomJoin struct {
@@ -88,37 +88,57 @@ func (c *Client) WritePump() {
 	for {
 		select {
 		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if !ok {
-				// The hub closed the channel.
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-
-			w, err := c.conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-			w.Write(message)
-			fmt.Printf("Sent Message: %s\n", message)
-
-			// Add queued chat messages to the current websocket message.
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				w.Write(newline)
-				w.Write(<-c.send)
-			}
-
-			if err := w.Close(); err != nil {
+			if c.handleMessages(ok, message) {
 				return
 			}
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if c.tickWebsocketPing() {
 				return
 			}
 		}
 	}
+}
+
+func (c *Client) handleMessages(ok bool, message []byte) bool {
+	defer c.mu.Unlock()
+	c.mu.Lock()
+
+	c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+	if !ok {
+		// The hub closed the channel.
+		c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+		return true
+	}
+
+	w, err := c.conn.NextWriter(websocket.TextMessage)
+	if err != nil {
+		return true
+	}
+	w.Write(message)
+	fmt.Printf("Sent Message: %s\n", message)
+
+	// Add queued chat messages to the current websocket message.
+	n := len(c.send)
+	for i := 0; i < n; i++ {
+		w.Write(newline)
+		w.Write(<-c.send)
+	}
+
+	if err := w.Close(); err != nil {
+		return true
+	}
+	return false
+}
+
+func (c *Client) tickWebsocketPing() bool {
+	defer c.mu.Unlock()
+	c.mu.Lock()
+
+	c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+	if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+		return true
+	}
+	return false
 }
 
 func (c *Client) ReadPump() {
@@ -143,19 +163,27 @@ func (c *Client) ReadPump() {
 		switch c.state {
 		case Initial:
 			c.handleInitialMessage(message)
-			break
 		case WaitingForStream:
 			c.handleStreamerMessage(message)
-		case Connected:
+		case Streamer:
 			c.recv <- message
-			break
+		case Viewer:
+			c.recv <- message
 		case Disconnected:
 
 		}
 	}
 }
 
-func (c *Client) readStreamerMessages(ticker *time.Ticker) bool {
+func (c *Client) getStateObject() rtc.WebRtcClient {
+	if c.state == Viewer {
+		return c.webRTCViewer
+	} else {
+		return c.webRTCStreamer
+	}
+}
+
+func (c *Client) readMessages(ticker *time.Ticker) bool {
 	for {
 		select {
 		case message, ok := <-c.recv:
@@ -165,8 +193,9 @@ func (c *Client) readStreamerMessages(ticker *time.Ticker) bool {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return true
 			}
-			c.webRTCStreamer.Recv <- message
-		case message := <-c.webRTCStreamer.Send:
+
+			c.getStateObject().Recv() <- message
+		case message := <-c.getStateObject().Send():
 			sendMessageWrapper(c.conn, MessageWrapper{Type: AnswerType, Message: message})
 			break
 		case <-ticker.C:
@@ -175,12 +204,6 @@ func (c *Client) readStreamerMessages(ticker *time.Ticker) bool {
 				return true
 			}
 		}
-	}
-}
-
-func (c *Client) readViewerMessages(ticker *time.Ticker) bool {
-	for {
-
 	}
 }
 
@@ -195,7 +218,6 @@ func (c *Client) handleInitialMessage(message []byte) {
 	} else {
 		c.hub.register <- &RoomJoin{client: c, roomId: rj.RoomId}
 		if c.hub.rooms[rj.RoomId] != nil && c.hub.rooms[rj.RoomId].streamer != nil {
-			c.webRTCViewer = rtc.NewWebRTCViewer()
 			c.setStateToViewer()
 		} else {
 			c.state = WaitingForStream
@@ -207,20 +229,26 @@ func (c *Client) handleInitialMessage(message []byte) {
 }
 
 func (c *Client) setStateToViewer() {
-	if c.state != Viewer {
+	if c.state != Viewer && c.state != Streamer {
 		c.state = Viewer
-		go c.readViewerMessages(time.NewTicker(pingPeriod))
+		c.webRTCViewer = rtc.NewWebRTCViewer()
+		go c.readMessages(time.NewTicker(pingPeriod))
 	}
 }
 
-func (c *Client) setStateToConnected() {
-	if c.state != Connected {
-		c.state = Connected
-		go c.readStreamerMessages(time.NewTicker(pingPeriod))
+func (c *Client) setStateToStreamer() {
+	if c.state != Streamer {
+		c.state = Streamer
+		c.webRTCStreamer = rtc.NewWebRTCStreamer()
+		go c.readMessages(time.NewTicker(pingPeriod))
+		go c.pumpToViewer()
 	}
 }
 
 func (c *Client) handleStreamerMessage(message []byte) {
+	defer c.mu.Unlock()
+	c.mu.Lock()
+	
 	var m MessageWrapper
 	err := json.Unmarshal(message, &m)
 	if err != nil {
@@ -236,17 +264,33 @@ func (c *Client) handleStreamerMessage(message []byte) {
 			c.hub.rooms[c.room].streamer = c
 			m, _ := json.Marshal(StartStreamInfoMessage{StreamStartSuccess: true})
 			sendMessageWrapper(c.conn, MessageWrapper{Type: StartStreamType, Message: m})
-			c.webRTCStreamer = rtc.NewWebRTCStreamer()
+			c.setStateToStreamer()
 			go c.webRTCStreamer.Start()
 			for client := range c.hub.rooms[c.room].clients {
 				m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
 				sendMessageWrapper(client.conn, MessageWrapper{Type: JoinRoomSuccessType, Message: m})
-				c.setStateToConnected()
+				if client != c {
+					client.setStateToViewer()
+					go client.webRTCViewer.Start()
+				}
 			}
 		} else {
 			m, _ := json.Marshal(StartStreamInfoMessage{StreamStartSuccess: false})
 			sendMessageWrapper(c.conn, MessageWrapper{Type: StartStreamType, Message: m})
 		}
 		break
+	}
+}
+
+func (c *Client) pumpToViewer() {
+	for {
+		if c.webRTCStreamer != nil && c.webRTCStreamer.WebRtcStream != nil {
+			pkg := <-c.webRTCStreamer.WebRtcStream
+			for client := range c.hub.rooms[c.room].clients {
+				if client != c && client.state == Viewer {
+					client.webRTCViewer.WebRtcStream <- pkg
+				}
+			}
+		}
 	}
 }
