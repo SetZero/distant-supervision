@@ -3,7 +3,6 @@ package rtc
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"github.com/pion/webrtc"
 )
 
@@ -41,17 +40,6 @@ func createPeerConnection(expectStream bool) (*WebRtcInfo, error) {
 		peerConnection, _ = api.NewPeerConnection(config)
 	} else {
 		peerConnection, _ = webrtc.NewPeerConnection(config)
-		outputTrack, err = webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, "video", "pion")
-		rtpSender, _ := peerConnection.AddTrack(outputTrack)
-		go func() {
-			rtcpBuf := make([]byte, 1500)
-			for {
-				if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
-					fmt.Println("Error in rtp!")
-					return
-				}
-			}
-		}()
 	}
 
 
