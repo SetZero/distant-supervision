@@ -3,7 +3,6 @@ package rtc
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"github.com/pion/webrtc"
 )
 
@@ -32,7 +31,7 @@ func createPeerConnection(expectStream bool) (*WebRtcInfo, error) {
 	if expectStream {
 		m := webrtc.MediaEngine{}
 		if err := m.RegisterCodec(webrtc.RTPCodecParameters{
-			RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "video/VP8", ClockRate: 48000, Channels: 0, SDPFmtpLine: "", RTCPFeedback: nil},
+			RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "video/VP8", ClockRate: 90000, Channels: 0, SDPFmtpLine: "", RTCPFeedback: nil},
 			PayloadType:        96,
 		}, webrtc.RTPCodecTypeVideo); err != nil {
 			panic(err)
@@ -41,17 +40,6 @@ func createPeerConnection(expectStream bool) (*WebRtcInfo, error) {
 		peerConnection, _ = api.NewPeerConnection(config)
 	} else {
 		peerConnection, _ = webrtc.NewPeerConnection(config)
-		outputTrack, err = webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/VP8", ClockRate: 48000, Channels: 0, SDPFmtpLine: "", RTCPFeedback: nil}, "video", "pion")
-		rtpSender, _ := peerConnection.AddTrack(outputTrack)
-		go func() {
-			rtcpBuf := make([]byte, 1500)
-			for {
-				if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
-					fmt.Println("Error in rtp!")
-					return
-				}
-			}
-		}()
 	}
 
 

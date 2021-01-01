@@ -4,7 +4,6 @@ import (
 	"../messages"
 	"encoding/json"
 	"fmt"
-	"github.com/pion/rtp"
 	"github.com/pion/webrtc"
 )
 
@@ -12,14 +11,14 @@ type WebRTCViewer struct {
 	peerConnection *webrtc.PeerConnection
 	send           chan OutputMessage
 	recv           chan []byte
-	WebRtcStream   chan *rtp.Packet
+	WebRtcStream   chan *webrtc.TrackLocalStaticRTP
 	outputTrack    *webrtc.TrackLocalStaticRTP
 }
 
 func NewWebRTCViewer() *WebRTCViewer {
 	connectionInfo, err := createPeerConnection(false)
 	if err == nil && connectionInfo != nil {
-		rtc := &WebRTCViewer{send: make(chan OutputMessage, 16384), recv: make(chan []byte, 16384), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *rtp.Packet), outputTrack: connectionInfo.outputTrack}
+		rtc := &WebRTCViewer{send: make(chan OutputMessage, 16384), recv: make(chan []byte, 16384), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *webrtc.TrackLocalStaticRTP), outputTrack: connectionInfo.outputTrack}
 		return rtc
 	} else {
 		return nil
@@ -36,6 +35,19 @@ func (r *WebRTCViewer) Recv() chan []byte {
 
 func (r *WebRTCViewer) Start() {
 
+	rtpSender, err := r.peerConnection.AddTrack(<-r.WebRtcStream)
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		rtcpBuf := make([]byte, 1500)
+		for {
+			if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
+				return
+			}
+		}
+	}()
+
 	r.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		fmt.Printf("[Viewer] Connection State has changed %s \n", connectionState.String())
 		if connectionState == webrtc.ICEConnectionStateFailed ||
@@ -44,16 +56,9 @@ func (r *WebRTCViewer) Start() {
 		}
 
 		if connectionState == webrtc.ICEConnectionStateConnected {
-			go func() {
-				for connectionState != webrtc.ICEConnectionStateFailed &&
-					connectionState != webrtc.ICEConnectionStateDisconnected {
-					stream := <-r.WebRtcStream
-					err := r.outputTrack.WriteRTP(stream)
-					if err != nil {
-						fmt.Println("[Viewer] Error: ", err)
-					}
-				}
-			}()
+			stats, _ := json.Marshal(r.peerConnection.GetStats())
+			fmt.Println("Connected... ", string(stats))
+
 		}
 	})
 

@@ -99,6 +99,7 @@ export class WebRTC {
             offerToReceiveAudio: false,
             offerToReceiveVideo: true
         });
+        console.log(offer);
         await this.onCreateOfferSuccess(offer);
     }
 
