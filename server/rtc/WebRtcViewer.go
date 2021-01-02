@@ -89,6 +89,7 @@ func (r *WebRTCViewer) Start() {
 				if err != nil {
 					fmt.Println("Error: ", err)
 				}
+
 				answer, err := r.peerConnection.CreateAnswer(nil)
 				if err != nil {
 					panic(err)

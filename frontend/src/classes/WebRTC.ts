@@ -92,15 +92,16 @@ export class WebRTC {
         this.peerConnection.addEventListener('icecandidate', e => this.onIceCandidate(this.peerConnection, e));
         this.peerConnection.addEventListener('iceconnectionstatechange', e => this.onIceStateChange(this.peerConnection, e));
         this.peerConnection.addEventListener('track', e => this.gotRemoteStream(e));
-        if(this.stream)
+        if (this.stream)
             this.stream.getTracks().forEach((track: MediaStreamTrack) => this.peerConnection.addTrack(track, this.stream));
 
         const offer = await this.peerConnection.createOffer({
             offerToReceiveAudio: false,
             offerToReceiveVideo: true
         });
-        console.log(offer);
-        await this.onCreateOfferSuccess(offer);
+        if (offer.sdp) {
+            await this.onCreateOfferSuccess(offer);
+        }
     }
 
     private async onCreateOfferSuccess(desc: RTCSessionDescriptionInit) {
@@ -111,33 +112,34 @@ export class WebRTC {
 
     private async acceptCall(message: any) {
         console.log("message: ", message);
-            switch (message.type) {
-                case "error":
-                    console.log("There was an error while performing websocket communication: ", message.message.Type);
-                    break;
-                case "joinedMessage":
-                    this.setActiveCall(message.message.roomHasStreamer)
-                    if(message.message.roomHasStreamer && !this.webRtcStarted) {
-                        this.webRtcStarted = true;
-                        this.startWebRTC();
-                    }
-                    break;
-                case "startStream":
-                    if(message.message.startStreamSuccess && !this.webRtcStarted) {
-                        this.webRtcStarted = true;
-                        this.startWebRTC();
-                    } else {
-                        console.log("someone else is streaming...")
-                    }
-                    break;
-                case "answer":
-                    this.peerConnection.setRemoteDescription(message.message);
-                    break;
-                case "newIceCandidate":
-                    if(message.message === null) break;
-                    console.log("New Ice Candidate: ", message.message)
-                    this.peerConnection.addIceCandidate(message.message);
-            }
+        switch (message.type) {
+            case "error":
+                console.log("There was an error while performing websocket communication: ", message.message.Type);
+                break;
+            case "joinedMessage":
+                this.setActiveCall(message.message.roomHasStreamer)
+                if (message.message.roomHasStreamer && !this.webRtcStarted) {
+                    this.webRtcStarted = true;
+                    this.startWebRTC();
+                }
+                break;
+            case "startStream":
+                if (message.message.startStreamSuccess && !this.webRtcStarted) {
+                    this.webRtcStarted = true;
+                    this.startWebRTC();
+                } else {
+                    console.log("someone else is streaming...")
+                }
+                break;
+            case "answer":
+                const t = message.message;
+                this.peerConnection.setRemoteDescription(t);
+                break;
+            case "newIceCandidate":
+                if (message.message === null) break;
+                console.log("New Ice Candidate: ", message.message)
+                this.peerConnection.addIceCandidate(message.message);
+        }
     }
 
     private gotRemoteStream(e: RTCTrackEvent) {
@@ -152,13 +154,13 @@ export class WebRTC {
     private showOwnVideo() {
         if (this.video.current) {
             console.log(this.stream.getVideoTracks());
-            //this.video.current.srcObject = this.stream.getVideoTracks()[0];
+            this.video.current.srcObject = this.stream;
         }
     }
 
     private async onIceCandidate(pc: RTCPeerConnection, event: RTCPeerConnectionIceEvent) {
         console.log("called ice!", event.candidate);
-        this.conn.send(JSON.stringify({ 'type': 'iceCandidate', 'message': event.candidate  }));
+        this.conn.send(JSON.stringify({ 'type': 'iceCandidate', 'message': event.candidate }));
     }
 
     private onIceStateChange(pc: RTCPeerConnection, event: Event) {
