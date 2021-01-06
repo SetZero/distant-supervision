@@ -58,8 +58,11 @@ func (r *WebRTCViewer) Start() {
 		if connectionState == webrtc.ICEConnectionStateConnected {
 			stats, _ := json.Marshal(r.peerConnection.GetStats())
 			fmt.Println("Connected... ", string(stats))
-
 		}
+	})
+
+	r.peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		fmt.Println("Got Track")
 	})
 
 	r.peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {

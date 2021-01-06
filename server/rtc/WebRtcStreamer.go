@@ -43,11 +43,14 @@ func (r *WebRTCStreamer) Start() {
 
 	r.peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		go func() {
-			ticker := time.NewTicker(time.Second * 3)
+			ticker := time.NewTicker(3 * time.Second)
 			for range ticker.C {
-				errSend := r.peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(track.SSRC())}})
-				if errSend != nil {
-					fmt.Println(errSend)
+				if writeErr := r.peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(track.SSRC())}}); writeErr != nil {
+					fmt.Println(writeErr)
+				}
+				// Send a remb message with a very high bandwidth to trigger chrome to send also the high bitrate stream
+				if writeErr := r.peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.ReceiverEstimatedMaximumBitrate{Bitrate: 10000000, SenderSSRC: uint32(track.SSRC())}}); writeErr != nil {
+					fmt.Println(writeErr)
 				}
 			}
 		}()
