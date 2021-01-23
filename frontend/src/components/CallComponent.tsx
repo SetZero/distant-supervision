@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { WebRTC } from "../classes/WebRTC";
 import { Button } from '@material-ui/core';
+import { StreamBar } from './StreamBar'
 
 interface CallProps { }
 let webRTC: WebRTC
@@ -13,7 +14,7 @@ export const CallComponent: React.FC<CallProps> = () => {
 
 
     useEffect(() => {
-        if(!webRTC) {
+        if (!webRTC) {
             webRTC = new WebRTC(video, setFinishedLoading, setActiveCall);
         } else {
             webRTC.setOutputVideo(video);
@@ -25,6 +26,7 @@ export const CallComponent: React.FC<CallProps> = () => {
         <div>
             {finishedLoading ?
                 <div>
+                    <StreamBar />
                     <video id="localVideo" autoPlay playsInline controls={true} ref={video}></video>
                     <Button id="startCall" onClick={() => webRTC.startCall()} disabled={!callEnabled || hasActiveCall}>{hasActiveCall ? "stream in progress..." : "start streaming!"}</Button>
                 </div> : <div>Loading...</div>

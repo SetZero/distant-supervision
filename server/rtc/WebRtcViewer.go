@@ -34,7 +34,6 @@ func (r *WebRTCViewer) Recv() chan []byte {
 }
 
 func (r *WebRTCViewer) Start() {
-
 	rtpSender, err := r.peerConnection.AddTrack(<-r.WebRtcStream)
 	if err != nil {
 		panic(err)
@@ -43,6 +42,7 @@ func (r *WebRTCViewer) Start() {
 		rtcpBuf := make([]byte, 1500)
 		for {
 			if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
+				fmt.Println(rtcpBuf)
 				return
 			}
 		}

@@ -95,7 +95,7 @@ export class WebRTC {
         if (this.stream)
             this.stream.getTracks().forEach((track: MediaStreamTrack) => this.peerConnection.addTrack(track, this.stream));
 
-        const offer = await this.peerConnection.createOffer({
+        let offer = await this.peerConnection.createOffer({
             offerToReceiveAudio: false,
             offerToReceiveVideo: true
         });
