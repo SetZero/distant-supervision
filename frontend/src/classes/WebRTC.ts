@@ -1,3 +1,5 @@
+import React, { useState } from "react";
+
 enum ShareState {
     INITAL,
     IN_PROGRESS,
@@ -28,9 +30,10 @@ export class WebRTC {
     private readonly myId = this.generatRandomId(36);
     private myRoom = window.location.hash || "DEFAULT";
     private setActiveCall: React.Dispatch<React.SetStateAction<boolean>>
+    private hasActiveCall: boolean;
     private webRtcStarted = false;
 
-    constructor(video: React.RefObject<HTMLVideoElement>, finishedLoading: React.Dispatch<React.SetStateAction<boolean>>, setActiveCall: React.Dispatch<React.SetStateAction<boolean>>) {
+    constructor(video: React.RefObject<HTMLVideoElement>, finishedLoading: React.Dispatch<React.SetStateAction<boolean>>, setActiveCall: React.Dispatch<React.SetStateAction<boolean>>, hasActiveCall: boolean) {
         console.log("created object")
         this.video = video;
         this.startSignaling(window.location.hash).then((c) => {
@@ -47,8 +50,13 @@ export class WebRTC {
             });
             finishedLoading(true);
         });
-        this.setActiveCall = setActiveCall
+        this.setActiveCall = setActiveCall;
+        this.hasActiveCall = hasActiveCall;
     }
+    public isStreamActive() {
+        return this.hasActiveCall;
+    }
+
     public setOutputVideo(video: React.RefObject<HTMLVideoElement>) {
         this.video = video;
     }
