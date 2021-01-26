@@ -41,17 +41,30 @@ export const CallComponent: React.FC<CallProps> = () => {
     const classes = useStyles();
     const [finishedLoading, setFinishedLoading] = useState(false);
     const [hasActiveCall, setActiveCall] = useState(false);
-    const video = React.createRef<HTMLVideoElement>();
+    const [activeViewers, setActiveViewers] = useState(0);
+    let video = React.createRef<HTMLVideoElement>();
 
 
     useEffect(() => {
         if (!webRTC) {
-            webRTC = new WebRTC(video, setFinishedLoading, setActiveCall, hasActiveCall);
+            webRTC = new WebRTC(video, setFinishedLoading, setActiveCall, hasActiveCall, setActiveViewers);
         } else {
             webRTC.setOutputVideo(video);
         }
     });
 
+    //<video id="localVideo" autoPlay playsInline controls={true} ref={video} className={classes.video}></video>
+    let streamInfo = hasActiveCall ?
+        (
+            <Grid item xs={12} >
+                <Container className={classes.infoBar}>
+                    <Chip avatar={<PeopleIcon />} label={activeViewers} />
+                    <Chip avatar={<ThumbUpAltIcon />} label="200" />
+                    <Chip avatar={<ThumbDownIcon />} label="0" />
+                </Container>
+            </Grid>
+        )
+        : (<div></div>);
 
     return (
         <div>
@@ -74,17 +87,11 @@ export const CallComponent: React.FC<CallProps> = () => {
                                     </Grid>
                                 </Grid>
                             </Grid>
-                            <Grid item xs={12}>
-                                <Container className={classes.infoBar}>
-                                    <Chip avatar={<PeopleIcon />} label="1.212.413" />
-                                    <Chip avatar={<ThumbUpAltIcon />} label="200" />
-                                    <Chip avatar={<ThumbDownIcon />} label="0" />
-                                </Container>
-                            </Grid>
+                            {streamInfo}
                         </Grid>
                     </Box>
                 </div> : <div>Loading...</div>
             }
-        </div>
+        </div >
     )
 }

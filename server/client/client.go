@@ -219,7 +219,7 @@ func (c *Client) handleInitialMessage(message []byte) {
 	} else {
 		c.hub.register <- &RoomJoin{client: c, roomId: rj.RoomId}
 		if c.hub.rooms[rj.RoomId] != nil && c.hub.rooms[rj.RoomId].streamer != nil {
-			c.setStateToViewer()
+			c.setStateToViewer(c.hub.rooms[rj.RoomId])
 		} else {
 			c.state = WaitingForStream
 		}
@@ -229,11 +229,20 @@ func (c *Client) handleInitialMessage(message []byte) {
 	}
 }
 
-func (c *Client) setStateToViewer() {
+func (c *Client) setStateToViewer(roomInfo *RoomInfo) {
 	if c.state != Viewer && c.state != Streamer {
 		c.state = Viewer
 		c.webRTCViewer = rtc.NewWebRTCViewer()
 		go c.readMessages(time.NewTicker(pingPeriod))
+		c.sendViewerUpdate(roomInfo)
+	}
+}
+
+func (c *Client) sendViewerUpdate(roomInfo *RoomInfo) {
+	var viewer = len(roomInfo.clients)
+	m, _ := json.Marshal(ViewerMessage{Viewers: uint32(viewer)})
+	for client := range roomInfo.clients {
+		sendMessageWrapper(client.conn, MessageWrapper{Type: messages.CurrentViewerUpdate, Message: m})
 	}
 }
 
@@ -271,7 +280,7 @@ func (c *Client) handleStreamerMessage(message []byte) {
 				m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
 				sendMessageWrapper(client.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
 				if client != c {
-					client.setStateToViewer()
+					client.setStateToViewer(c.hub.rooms[c.room])
 					go client.webRTCViewer.Start()
 				}
 			}

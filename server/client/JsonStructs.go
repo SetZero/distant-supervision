@@ -32,6 +32,10 @@ type StreamerMessage struct {
 	RoomHasStreamer bool `json:"roomHasStreamer"`
 }
 
+type ViewerMessage struct {
+	Viewers uint32 `json:"viewers"`
+}
+
 type StartStreamInfoMessage struct {
 	StreamStartSuccess bool `json:"startStreamSuccess"`
 }

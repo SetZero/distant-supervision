@@ -10,4 +10,5 @@ const (
 	RequestStreamerType             = "requestStreamer"
 	AnswerType                      = "answer"
 	IceCandidate					= "newIceCandidate"
+	CurrentViewerUpdate 			= "currentViewers"
 )

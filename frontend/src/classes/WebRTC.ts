@@ -30,10 +30,15 @@ export class WebRTC {
     private readonly myId = this.generatRandomId(36);
     private myRoom = window.location.hash || "DEFAULT";
     private setActiveCall: React.Dispatch<React.SetStateAction<boolean>>
+    setActiveViewers: React.Dispatch<React.SetStateAction<number>>
     private hasActiveCall: boolean;
     private webRtcStarted = false;
 
-    constructor(video: React.RefObject<HTMLVideoElement>, finishedLoading: React.Dispatch<React.SetStateAction<boolean>>, setActiveCall: React.Dispatch<React.SetStateAction<boolean>>, hasActiveCall: boolean) {
+    constructor(video: React.RefObject<HTMLVideoElement>,
+        finishedLoading: React.Dispatch<React.SetStateAction<boolean>>,
+        setActiveCall: React.Dispatch<React.SetStateAction<boolean>>,
+        hasActiveCall: boolean, setActiveViewers: React.Dispatch<React.SetStateAction<number>>) {
+
         console.log("created object")
         this.video = video;
         this.startSignaling(window.location.hash).then((c) => {
@@ -52,6 +57,7 @@ export class WebRTC {
         });
         this.setActiveCall = setActiveCall;
         this.hasActiveCall = hasActiveCall;
+        this.setActiveViewers = setActiveViewers;
     }
     public isStreamActive() {
         return this.hasActiveCall;
@@ -147,6 +153,11 @@ export class WebRTC {
                 if (message.message === null) break;
                 console.log("New Ice Candidate: ", message.message)
                 this.peerConnection.addIceCandidate(message.message);
+                break;
+            case "currentViewers":
+                if (message.message === null) break;
+                this.setActiveViewers(message.message.viewers);
+                break;
         }
     }
 
