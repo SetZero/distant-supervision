@@ -6,6 +6,10 @@ enum ShareState {
     STABLE
 }
 
+enum StreamRole {
+    STREAMER,
+    VIEWER
+}
 
 const configuration = {
     configuration: {
@@ -33,6 +37,7 @@ export class WebRTC {
     setActiveViewers: React.Dispatch<React.SetStateAction<number>>
     private hasActiveCall: boolean;
     private webRtcStarted = false;
+    private streamRole = StreamRole.VIEWER;
 
     constructor(video: React.RefObject<HTMLVideoElement>,
         finishedLoading: React.Dispatch<React.SetStateAction<boolean>>,
@@ -93,6 +98,7 @@ export class WebRTC {
         if (this.videoState !== ShareState.INITAL)
             return;
 
+        this.streamRole = StreamRole.STREAMER;
         this.videoState = ShareState.IN_PROGRESS;
         console.log("start call");
         // @ts-ignore
@@ -164,7 +170,7 @@ export class WebRTC {
     private gotRemoteStream(e: RTCTrackEvent) {
         console.log("Got Stream!");
         this.videoState = ShareState.STABLE;
-        if (this.video.current && this.video.current.srcObject !== e.streams[0]) {
+        if (this.streamRole === StreamRole.VIEWER && this.video.current && this.video.current.srcObject !== e.streams[0]) {
             this.video.current.srcObject = e.streams[0];
             console.log('received remote stream');
         }
