@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"sync"
 )
 
 type ErrorType string
@@ -52,4 +53,9 @@ func sendMessageWrapper(conn *websocket.Conn, message MessageWrapper) {
 	} else {
 		conn.WriteMessage(websocket.TextMessage, m)
 	}
+}
+
+type SafeConnection struct {
+	Mu   sync.Mutex
+	Conn *websocket.Conn
 }

@@ -57,7 +57,7 @@ type Client struct {
 
 	room string
 
-	mu sync.Mutex // todo
+	mu *sync.Mutex // todo
 
 	webRTCStreamer *rtc.WebRTCStreamer
 	webRTCViewer   *rtc.WebRTCViewer
@@ -71,8 +71,8 @@ type RoomJoin struct {
 	roomId string
 }
 
-func NewClient(hub *Hub, conn *websocket.Conn) Client {
-	return Client{hub: hub, conn: conn, send: make(chan []byte, 16384), recv: make(chan []byte, 16384), state: Initial}
+func NewClient(hub *Hub, conn *SafeConnection) Client {
+	return Client{hub: hub, conn: conn.Conn, send: make(chan []byte, 16384), recv: make(chan []byte, 16384), state: Initial, mu: &conn.Mu}
 }
 
 // writePump pumps messages from the hub to the websocket connection.
@@ -144,6 +144,7 @@ func (c *Client) tickWebsocketPing() bool {
 
 func (c *Client) ReadPump() {
 	defer func() {
+		c.sendViewerUpdate(c.hub.rooms[c.room])
 		c.conn.Close()
 		c.hub.unregister <- c
 	}()

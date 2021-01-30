@@ -1,12 +1,12 @@
 package main
 
 import (
+	"./client"
 	"flag"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
-	"./client"
 )
 
 var addr = flag.String("addr", ":5501", "http service address")
@@ -38,13 +38,14 @@ func serveWs(hub *client.Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	client := client.NewClient(hub, conn)
+	sc := client.SafeConnection{Conn: conn}
+	cli := client.NewClient(hub, &sc)
 	// client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
-	go client.WritePump()
-	go client.ReadPump()
+	go cli.WritePump()
+	go cli.ReadPump()
 }
 
 func main() {
