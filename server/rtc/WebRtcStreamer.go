@@ -49,7 +49,7 @@ func (r *WebRTCStreamer) Start() {
 					fmt.Println(writeErr)
 				}
 				// Send a remb message with a very high bandwidth to trigger chrome to send also the high bitrate stream
-				if writeErr := r.peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.ReceiverEstimatedMaximumBitrate{Bitrate: 10000000, SenderSSRC: uint32(track.SSRC())}}); writeErr != nil {
+				if writeErr := r.peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.ReceiverEstimatedMaximumBitrate{Bitrate: 100000000, SenderSSRC: uint32(track.SSRC())}}); writeErr != nil {
 					fmt.Println(writeErr)
 				}
 			}

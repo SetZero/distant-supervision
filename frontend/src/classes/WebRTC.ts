@@ -19,7 +19,12 @@ const configuration = {
 };
 
 const constraints = {
-    'video': true,
+    video: {
+        width: { ideal: 1280 },
+        height: { ideal: 1024 },
+        sampleRate: { ideal: 10000000 },
+        facingMode: "environment"
+    },
     'audio': false
 }
 
@@ -157,8 +162,12 @@ export class WebRTC {
                 break;
             case "newIceCandidate":
                 if (message.message === null) break;
-                console.log("New Ice Candidate: ", message.message)
-                this.peerConnection.addIceCandidate(message.message);
+                try {
+                    console.log("New Ice Candidate: ", message.message)
+                    this.peerConnection.addIceCandidate(message.message);
+                } catch (e) {
+                    console.error("Failed to add ICE candidate: ", e)
+                }
                 break;
             case "currentViewers":
                 if (message.message === null) break;

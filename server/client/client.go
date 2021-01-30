@@ -239,6 +239,8 @@ func (c *Client) setStateToViewer(roomInfo *RoomInfo) {
 }
 
 func (c *Client) sendViewerUpdate(roomInfo *RoomInfo) {
+	defer c.mu.Unlock()
+	c.mu.Lock()
 	var viewer = len(roomInfo.clients)
 	m, _ := json.Marshal(ViewerMessage{Viewers: uint32(viewer)})
 	for client := range roomInfo.clients {
