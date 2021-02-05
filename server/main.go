@@ -12,8 +12,8 @@ import (
 var addr = flag.String("addr", ":5501", "http service address")
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  16384,
-	WriteBufferSize: 16384,
+	ReadBufferSize:  8192,
+	WriteBufferSize: 8192,
 }
 
 func serveHome(w http.ResponseWriter, r *http.Request) {

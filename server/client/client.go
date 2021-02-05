@@ -14,7 +14,7 @@ import (
 
 const (
 	// Time allowed to write a message to the peer.
-	writeWait = 10 * time.Second
+	writeWait = 20 * time.Second
 
 	// Time allowed to read the next pong message from the peer.
 	pongWait = 60 * time.Second
@@ -23,7 +23,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 
 	// Maximum message size allowed from peer.
-	maxMessageSize = 16384
+	maxMessageSize = 262144
 )
 
 var (
@@ -72,7 +72,7 @@ type RoomJoin struct {
 }
 
 func NewClient(hub *Hub, conn *SafeConnection) Client {
-	return Client{hub: hub, conn: conn.Conn, send: make(chan []byte, 16384), recv: make(chan []byte, 16384), state: Initial, mu: &conn.Mu}
+	return Client{hub: hub, conn: conn.Conn, send: make(chan []byte, 262144), recv: make(chan []byte, 262144), state: Initial, mu: &conn.Mu}
 }
 
 // writePump pumps messages from the hub to the websocket connection.
