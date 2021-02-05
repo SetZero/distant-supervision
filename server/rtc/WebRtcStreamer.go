@@ -15,7 +15,9 @@ type WebRTCStreamer struct {
 	peerConnection *webrtc.PeerConnection
 	send           chan OutputMessage
 	recv           chan []byte
-	WebRtcStream   chan  *webrtc.TrackLocalStaticRTP
+	WebRtcStream   chan *webrtc.TrackLocalStaticRTP
+	track          *webrtc.TrackRemote
+	currentBitrate uint64
 }
 
 func NewWebRTCStreamer() *WebRTCStreamer {
@@ -42,6 +44,7 @@ func (r *WebRTCStreamer) Start() {
 	}
 
 	r.peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		r.track = track
 		go func() {
 			ticker := time.NewTicker(3 * time.Second)
 			for range ticker.C {
@@ -49,7 +52,7 @@ func (r *WebRTCStreamer) Start() {
 					fmt.Println(writeErr)
 				}
 				// Send a remb message with a very high bandwidth to trigger chrome to send also the high bitrate stream
-				if writeErr := r.peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.ReceiverEstimatedMaximumBitrate{Bitrate: 100000000, SenderSSRC: uint32(track.SSRC())}}); writeErr != nil {
+				if writeErr := r.peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.ReceiverEstimatedMaximumBitrate{Bitrate: r.currentBitrate, SenderSSRC: uint32(track.SSRC())}}); writeErr != nil {
 					fmt.Println(writeErr)
 				}
 			}
@@ -60,7 +63,7 @@ func (r *WebRTCStreamer) Start() {
 		if newTrackErr != nil {
 			panic(newTrackErr)
 		}
-		r.WebRtcStream <-localTrack
+		r.WebRtcStream <- localTrack
 
 		rtpBuf := make([]byte, 1400)
 		for {
@@ -87,7 +90,9 @@ func (r *WebRTCStreamer) Start() {
 
 	r.peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		fmt.Println("Canidate: ", candidate)
-		if candidate == nil { return }
+		if candidate == nil {
+			return
+		}
 		iceCandidate, err := json.Marshal(candidate.ToJSON())
 		if err != nil || iceCandidate == nil {
 			println("Error with Ice canidate")
@@ -134,6 +139,14 @@ func (r *WebRTCStreamer) Start() {
 				err := r.peerConnection.AddICECandidate(iceandidate)
 				if err != nil {
 					panic(err)
+				}
+				break
+			case BitrateChangeType:
+				var bitrateOffer BitrateChangeOffer
+				json.Unmarshal(m.Message, &bitrateOffer)
+				if bitrateOffer.Bitrate > 0 && r.track != nil {
+					r.currentBitrate = bitrateOffer.Bitrate * 1024
+					fmt.Println("Changed Bitrate to: ", bitrateOffer.Bitrate * 1024)
 				}
 				break
 			}

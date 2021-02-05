@@ -6,7 +6,7 @@ enum ShareState {
     STABLE
 }
 
-enum StreamRole {
+export enum StreamRole {
     STREAMER,
     VIEWER
 }
@@ -22,7 +22,7 @@ const constraints = {
     video: {
         width: { ideal: 1280 },
         height: { ideal: 1024 },
-        sampleRate: { ideal: 10000000 },
+        cursor: "never",
         facingMode: "environment"
     },
     'audio': false
@@ -112,6 +112,10 @@ export class WebRTC {
         this.conn.send(JSON.stringify({ type: "startStream" }))
     }
 
+    public get role() {
+        return this.streamRole;
+    }
+
     public async startWebRTC() {
         this.peerConnection = new RTCPeerConnection(configuration);
         this.peerConnection.addEventListener('icecandidate', e => this.onIceCandidate(this.peerConnection, e));
@@ -127,6 +131,10 @@ export class WebRTC {
         if (offer.sdp) {
             await this.onCreateOfferSuccess(offer);
         }
+    }
+
+    public async setBitrate(bitrateMbps: number) {
+        this.conn.send(JSON.stringify({ type: "bitrateChange", message: { bitrate: bitrateMbps } }));
     }
 
     private async onCreateOfferSuccess(desc: RTCSessionDescriptionInit) {

@@ -9,6 +9,6 @@ const (
 	StartStreamType                 = "startStream"
 	RequestStreamerType             = "requestStreamer"
 	AnswerType                      = "answer"
-	IceCandidate					= "newIceCandidate"
-	CurrentViewerUpdate 			= "currentViewers"
+	IceCandidate                    = "newIceCandidate"
+	CurrentViewerUpdate             = "currentViewers"
 )

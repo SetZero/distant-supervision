@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { WebRTC } from "../classes/WebRTC";
-import { Button, Container, Grid, Box, makeStyles, Typography, Chip, TextField } from '@material-ui/core';
+import { StreamRole, WebRTC } from "../classes/WebRTC";
+import { Button, Container, Grid, Box, makeStyles, Typography, Chip, TextField, InputAdornment } from '@material-ui/core';
 import { StreamBar } from './StreamBar'
 import PeopleIcon from '@material-ui/icons/People';
 import ThumbUpAltIcon from '@material-ui/icons/ThumbUpAlt';
@@ -42,6 +42,8 @@ export const CallComponent: React.FC<CallProps> = () => {
     const [finishedLoading, setFinishedLoading] = useState(false);
     const [hasActiveCall, setActiveCall] = useState(false);
     const [activeViewers, setActiveViewers] = useState(0);
+    const [bitrate, setBitrate] = useState(0);
+    const [bitrateButton, setBitrateButton] = useState((<div></div>));
     let video = React.createRef<HTMLVideoElement>();
 
 
@@ -52,6 +54,32 @@ export const CallComponent: React.FC<CallProps> = () => {
             webRTC.setOutputVideo(video);
         }
     });
+
+    function handleBitrateChange(event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) {
+        console.log("called!")
+        let val = parseInt(event.currentTarget.value);
+        if (!!webRTC) {
+            webRTC.setBitrate(val);
+        }
+    }
+
+    function streamStartHandler() {
+        if (webRTC && webRTC.role === StreamRole.STREAMER) {
+            setBitrateButton(
+                <Box>
+                    <TextField
+                        label="Bandwith"
+                        id="standard-start-adornment"
+                        type="number"
+                        onChange={(e) => handleBitrateChange(e)}
+                        InputProps={{
+                            endAdornment: <InputAdornment position="end">Kb/s</InputAdornment>,
+                        }}
+                    />
+                </Box>
+            );
+        }
+    }
 
     //<video id="localVideo" autoPlay playsInline controls={true} ref={video} className={classes.video}></video>
     let streamInfo = hasActiveCall ?
@@ -71,7 +99,7 @@ export const CallComponent: React.FC<CallProps> = () => {
             {finishedLoading ?
                 <div>
                     <Box>
-                        <StreamBar webrtc={webRTC} />
+                        <StreamBar webrtc={webRTC} onStreamStart={() => streamStartHandler()} />
                     </Box>
                     <Box>
                         <Grid container>
@@ -90,6 +118,7 @@ export const CallComponent: React.FC<CallProps> = () => {
                             {streamInfo}
                         </Grid>
                     </Box>
+                    {bitrateButton}
                 </div> : <div>Loading...</div>
             }
         </div >

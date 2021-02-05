@@ -10,21 +10,22 @@ import { makeStyles } from "@material-ui/core";
 
 const useStyles = makeStyles((theme) => ({
     root: {
-      flexGrow: 1,
+        flexGrow: 1,
     },
     menuButton: {
-      marginRight: theme.spacing(2),
+        marginRight: theme.spacing(2),
     },
     title: {
-      flexGrow: 1,
+        flexGrow: 1,
     },
-  }));
+}));
 
 interface StreamBarProps {
     webrtc: WebRTC
+    onStreamStart: () => void
 }
 
-export const StreamBar: React.FC<StreamBarProps> = ({ webrtc }) => {
+export const StreamBar: React.FC<StreamBarProps> = ({ webrtc, onStreamStart }) => {
     const classes = useStyles();
 
     if (!webrtc) return (<div />);
@@ -38,7 +39,7 @@ export const StreamBar: React.FC<StreamBarProps> = ({ webrtc }) => {
             </Typography>
             <Button
                 id="startCall"
-                onClick={() => webrtc.startCall()}
+                onClick={() => { webrtc.startCall(); onStreamStart() }}
                 disabled={webrtc.isStreamActive()}
                 variant="contained"
                 color="default"
