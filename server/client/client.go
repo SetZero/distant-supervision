@@ -72,7 +72,7 @@ type RoomJoin struct {
 }
 
 func NewClient(hub *Hub, conn *SafeConnection) Client {
-	return Client{hub: hub, conn: conn.Conn, send: make(chan []byte, 262144), recv: make(chan []byte, 262144), state: Initial, mu: &conn.Mu}
+	return Client{hub: hub, conn: conn.Conn, send: make(chan []byte, 8192), recv: make(chan []byte, 8192), state: Initial, mu: &conn.Mu}
 }
 
 // writePump pumps messages from the hub to the websocket connection.

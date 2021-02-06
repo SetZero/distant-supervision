@@ -18,7 +18,7 @@ type WebRTCViewer struct {
 func NewWebRTCViewer() *WebRTCViewer {
 	connectionInfo, err := createPeerConnection(false)
 	if err == nil && connectionInfo != nil {
-		rtc := &WebRTCViewer{send: make(chan OutputMessage, 262144), recv: make(chan []byte, 262144), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *webrtc.TrackLocalStaticRTP), outputTrack: connectionInfo.outputTrack}
+		rtc := &WebRTCViewer{send: make(chan OutputMessage, 8192), recv: make(chan []byte, 8192), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *webrtc.TrackLocalStaticRTP), outputTrack: connectionInfo.outputTrack}
 		return rtc
 	} else {
 		return nil
@@ -39,7 +39,7 @@ func (r *WebRTCViewer) Start() {
 		panic(err)
 	}
 	go func() {
-		rtcpBuf := make([]byte, 1500)
+		rtcpBuf := make([]byte, 4096)
 		for {
 			if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
 				fmt.Println(rtcpBuf)
