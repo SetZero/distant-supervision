@@ -18,16 +18,6 @@ const configuration = {
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 };
 
-const constraints = {
-    video: {
-        width: { ideal: 1280 },
-        height: { ideal: 1024 },
-        cursor: "never",
-        facingMode: "environment"
-    },
-    'audio': false
-}
-
 export class WebRTC {
     private readonly port = (window.location.hostname === "localhost" ? ":5501" : "");
     private readonly protocol = (this.isSecureContext() ? "wss://" : "ws://");
@@ -38,16 +28,25 @@ export class WebRTC {
     private videoState = ShareState.INITAL;
     private readonly myId = this.generatRandomId(36);
     private myRoom = window.location.hash || "DEFAULT";
-    private setActiveCall: React.Dispatch<React.SetStateAction<boolean>>
-    setActiveViewers: React.Dispatch<React.SetStateAction<number>>
-    private hasActiveCall: boolean;
+    //private setActiveCall: React.Dispatch<React.SetStateAction<boolean>>
+    //setActiveViewers: React.Dispatch<React.SetStateAction<number>>
+    //private hasActiveCall: boolean;
     private webRtcStarted = false;
     private streamRole = StreamRole.VIEWER;
+    private constraints = {
+        video: {
+            width: { ideal: 1280 },
+            height: { ideal: 1024 },
+            cursor: "never",
+            facingMode: "environment"
+        },
+        'audio': false
+    };
 
     constructor(video: React.RefObject<HTMLVideoElement>,
-        finishedLoading: React.Dispatch<React.SetStateAction<boolean>>,
-        setActiveCall: React.Dispatch<React.SetStateAction<boolean>>,
-        hasActiveCall: boolean, setActiveViewers: React.Dispatch<React.SetStateAction<number>>) {
+        finishedLoading: (state: boolean) => void,
+        /*setActiveCall: React.Dispatch<React.SetStateAction<boolean>>,
+        hasActiveCall: boolean, setActiveViewers: React.Dispatch<React.SetStateAction<number>>*/) {
 
         console.log("created object")
         this.video = video;
@@ -65,12 +64,12 @@ export class WebRTC {
             });
             finishedLoading(true);
         });
-        this.setActiveCall = setActiveCall;
+        /*this.setActiveCall = setActiveCall;
         this.hasActiveCall = hasActiveCall;
-        this.setActiveViewers = setActiveViewers;
+        this.setActiveViewers = setActiveViewers*/;
     }
     public isStreamActive() {
-        return this.hasActiveCall;
+        return false;//this.hasActiveCall;
     }
 
     public setOutputVideo(video: React.RefObject<HTMLVideoElement>) {
@@ -107,7 +106,7 @@ export class WebRTC {
         this.videoState = ShareState.IN_PROGRESS;
         console.log("start call");
         // @ts-ignore
-        this.stream = await navigator.mediaDevices.getDisplayMedia(constraints);
+        this.stream = await navigator.mediaDevices.getDisplayMedia(this.constraints);
         this.showOwnVideo();
         this.conn.send(JSON.stringify({ type: "startStream" }))
     }
@@ -150,7 +149,7 @@ export class WebRTC {
                 console.log("There was an error while performing websocket communication: ", message.message.Type);
                 break;
             case "joinedMessage":
-                this.setActiveCall(message.message.roomHasStreamer)
+                //this.setActiveCall(message.message.roomHasStreamer)
                 if (message.message.roomHasStreamer && !this.webRtcStarted) {
                     this.webRtcStarted = true;
                     this.startWebRTC();
@@ -179,7 +178,7 @@ export class WebRTC {
                 break;
             case "currentViewers":
                 if (message.message === null) break;
-                this.setActiveViewers(message.message.viewers);
+                //this.setActiveViewers(message.message.viewers);
                 break;
         }
     }

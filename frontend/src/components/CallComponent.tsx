@@ -5,6 +5,9 @@ import { StreamBar } from './StreamBar'
 import PeopleIcon from '@material-ui/icons/People';
 import ThumbUpAltIcon from '@material-ui/icons/ThumbUpAlt';
 import ThumbDownIcon from '@material-ui/icons/ThumbDown';
+import { SettingsBar } from "./SettingsBar";
+import { useDispatch, useSelector } from "react-redux";
+import { showSettings, bitRateChange, startStream, streamRole, finishedLoading } from "../store/actions/rootActions";
 
 const useStyles = makeStyles((theme) => ({
     video: {
@@ -39,45 +42,30 @@ let webRTC: WebRTC
 
 export const CallComponent: React.FC<CallProps> = () => {
     const classes = useStyles();
-    const [finishedLoading, setFinishedLoading] = useState(false);
     const [hasActiveCall, setActiveCall] = useState(false);
     const [activeViewers, setActiveViewers] = useState(0);
-    const [bitrate, setBitrate] = useState(0);
-    const [bitrateButton, setBitrateButton] = useState((<div></div>));
     let video = React.createRef<HTMLVideoElement>();
-
+    const bitrate = useSelector((state: any) => state.bitrate);
+    const finished = useSelector((state: any) => state.finishedLoading);
+    const dispatch = useDispatch();
+    const loadingFinished = (state: boolean) => { dispatch(finishedLoading(state)) };
 
     useEffect(() => {
         if (!webRTC) {
-            webRTC = new WebRTC(video, setFinishedLoading, setActiveCall, hasActiveCall, setActiveViewers);
+            webRTC = new WebRTC(video, loadingFinished);
         } else {
             webRTC.setOutputVideo(video);
         }
     });
 
-    function handleBitrateChange(event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) {
-        console.log("called!")
-        let val = parseInt(event.currentTarget.value);
-        if (!!webRTC) {
-            webRTC.setBitrate(val);
-        }
-    }
+    if (!!webRTC)
+        webRTC.setBitrate(bitrate);
 
     function streamStartHandler() {
-        if (webRTC && webRTC.role === StreamRole.STREAMER) {
-            setBitrateButton(
-                <Box>
-                    <TextField
-                        label="Bandwith"
-                        id="standard-start-adornment"
-                        type="number"
-                        onChange={(e) => handleBitrateChange(e)}
-                        InputProps={{
-                            endAdornment: <InputAdornment position="end">Kb/s</InputAdornment>,
-                        }}
-                    />
-                </Box>
-            );
+        if (webRTC) {
+            console.log("ok")
+            dispatch(streamRole(webRTC.role));
+            dispatch(startStream(true));
         }
     }
 
@@ -96,8 +84,9 @@ export const CallComponent: React.FC<CallProps> = () => {
 
     return (
         <div>
-            {finishedLoading ?
+            {finished ?
                 <div>
+                    <SettingsBar />
                     <Box>
                         <StreamBar webrtc={webRTC} onStreamStart={() => streamStartHandler()} />
                     </Box>
@@ -118,7 +107,6 @@ export const CallComponent: React.FC<CallProps> = () => {
                             {streamInfo}
                         </Grid>
                     </Box>
-                    {bitrateButton}
                 </div> : <div>Loading...</div>
             }
         </div >
