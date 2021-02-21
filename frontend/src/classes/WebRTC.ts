@@ -68,9 +68,6 @@ export class WebRTC {
         this.hasActiveCall = hasActiveCall;
         this.setActiveViewers = setActiveViewers*/;
     }
-    public isStreamActive() {
-        return false;//this.hasActiveCall;
-    }
 
     public setOutputVideo(video: React.RefObject<HTMLVideoElement>) {
         this.video = video;
@@ -78,6 +75,11 @@ export class WebRTC {
 
     private isSecureContext() {
         return window.location.protocol === 'https:';
+    }
+
+    public setVideoResolution(x: number, y: number) {
+        this.constraints.video.width.ideal = x;
+        this.constraints.video.height.ideal = y;
     }
     private generatRandomId(length: Number) {
         var result = '';

@@ -38,7 +38,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 interface CallProps { }
-let webRTC: WebRTC
+let webRTC: WebRTC;
 
 export const CallComponent: React.FC<CallProps> = () => {
     const classes = useStyles();
@@ -47,6 +47,7 @@ export const CallComponent: React.FC<CallProps> = () => {
     let video = React.createRef<HTMLVideoElement>();
     const bitrate = useSelector((state: any) => state.bitrate);
     const finished = useSelector((state: any) => state.finishedLoading);
+    const resolution = useSelector((state: any) => state.streamResolution);
     const dispatch = useDispatch();
     const loadingFinished = (state: boolean) => { dispatch(finishedLoading(state)) };
 
@@ -58,8 +59,10 @@ export const CallComponent: React.FC<CallProps> = () => {
         }
     });
 
-    if (!!webRTC)
+    if (!!webRTC) {
         webRTC.setBitrate(bitrate);
+        webRTC.setVideoResolution(resolution.x, resolution.y)
+    }
 
     function streamStartHandler() {
         if (webRTC) {

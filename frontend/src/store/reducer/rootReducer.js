@@ -1,4 +1,4 @@
-let initialState = { bitrate: 2000, showSettings: false, streamStarted: false, streamRole: -1, streamResolution: {x: 1270, y: 720}, finishedLoading: false };
+let initialState = { bitrate: 2000, showSettings: false, streamStarted: false, streamRole: -1, streamResolution: {x: 1280, y: 720}, finishedLoading: false };
 
 export function rootReducer(state = initialState, action) {
     switch (action.type) {

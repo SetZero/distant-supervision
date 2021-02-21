@@ -11,6 +11,7 @@ export const SettingsBar: React.FC<SettingsBarProps> = ({ }) => {
     const showBar = useSelector((state: any) => state.showSettings);
     const bitrate = useSelector((state: any) => state.bitrate);
     const resolution = useSelector((state: any) => state.streamResolution);
+    const streamStarted = useSelector((state: any) => state.streamStarted);
     const dispatch = useDispatch();
     let resolutions = [
         { name: "240p", value: { x: 426, y: 240 } },
@@ -31,8 +32,6 @@ export const SettingsBar: React.FC<SettingsBarProps> = ({ }) => {
         let val = event.target.value;
         dispatch(setResolution(JSON.parse(val as string)));
     }
-
-    console.log(resolution);
     return (<React.Fragment >
         <Drawer anchor="left" open={showBar} onClose={() => { dispatch(showSettings(false)) }}>
             <Box m={2}>
@@ -52,6 +51,7 @@ export const SettingsBar: React.FC<SettingsBarProps> = ({ }) => {
                     id="demo-simple-select"
                     value={JSON.stringify(resolution)}
                     onChange={(e) => handleResolutionChange(e)}
+                    disabled={streamStarted}
                 >
                     {resolutions.map((resolution, index) => (
                         <MenuItem value={JSON.stringify(resolution.value)} key={index}>{resolution.name}</MenuItem>
