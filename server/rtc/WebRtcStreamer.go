@@ -53,6 +53,7 @@ func (r *WebRTCStreamer) Start() {
 		panic(err)
 	}
 
+
 	r.peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		fmt.Println("Track: ", track)
 		r.track = track

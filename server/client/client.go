@@ -201,9 +201,13 @@ func (c *Client) readMessages(ticker *time.Ticker) bool {
 			sendMessageWrapper(c.conn, MessageWrapper{Type: message.Type, Message: message.Data})
 			break
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				return true
+			{
+				defer c.mu.Unlock()
+				c.mu.Lock()
+				c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return true
+				}
 			}
 		}
 	}
@@ -254,14 +258,14 @@ func (c *Client) setStateToStreamer() {
 		c.state = Streamer
 		c.webRTCStreamer = rtc.NewWebRTCStreamer()
 		go c.readMessages(time.NewTicker(pingPeriod))
-		go c.pumpToViewer()
+		c.pumpToViewer()
 	}
 }
 
 func (c *Client) handleStreamerMessage(message []byte) {
 	defer c.mu.Unlock()
 	c.mu.Lock()
-	
+
 	var m MessageWrapper
 	err := json.Unmarshal(message, &m)
 	if err != nil {
@@ -279,14 +283,7 @@ func (c *Client) handleStreamerMessage(message []byte) {
 			sendMessageWrapper(c.conn, MessageWrapper{Type: messages.StartStreamType, Message: m})
 			c.setStateToStreamer()
 			go c.webRTCStreamer.Start()
-			for client := range c.hub.rooms[c.room].clients {
-				m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
-				sendMessageWrapper(client.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
-				if client != c {
-					client.setStateToViewer(c.hub.rooms[c.room])
-					go client.webRTCViewer.Start()
-				}
-			}
+			c.startClients()
 		} else {
 			m, _ := json.Marshal(StartStreamInfoMessage{StreamStartSuccess: false})
 			sendMessageWrapper(c.conn, MessageWrapper{Type: messages.StartStreamType, Message: m})
@@ -295,17 +292,43 @@ func (c *Client) handleStreamerMessage(message []byte) {
 	}
 }
 
+func (c *Client) startClients() {
+	for client := range c.hub.rooms[c.room].clients {
+		m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
+		sendMessageWrapper(client.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
+		if client != c {
+			client.setStateToViewer(c.hub.rooms[c.room])
+			go client.webRTCViewer.Start()
+		}
+	}
+}
+
 func (c *Client) pumpToViewer() {
-	for {
-		if c.webRTCStreamer != nil && c.webRTCStreamer.WebRtcVideoStream != nil {
-			videoPkg := <-c.webRTCStreamer.WebRtcVideoStream
-			audioPkg := <-c.webRTCStreamer.WebRtcAudioStream
-			for client := range c.hub.rooms[c.room].clients {
-				if client != c && client.state == Viewer {
-					client.webRTCViewer.WebRtcVideoStream <- videoPkg
-					client.webRTCViewer.WebRtcAudioStream <- audioPkg
+	go func() {
+		for {
+			if c.webRTCStreamer != nil && c.webRTCStreamer.WebRtcVideoStream != nil {
+				videoPkg := <-c.webRTCStreamer.WebRtcVideoStream
+				for client := range c.hub.rooms[c.room].clients {
+					if client != c && client.state == Viewer {
+						client.webRTCViewer.WebRtcVideoStream <- videoPkg
+					}
 				}
 			}
 		}
-	}
+
+	}()
+
+	go func() {
+		for {
+			if c.webRTCStreamer != nil && c.webRTCStreamer.WebRtcAudioStream != nil {
+				audioPkg := <-c.webRTCStreamer.WebRtcAudioStream
+				for client := range c.hub.rooms[c.room].clients {
+					if client != c && client.state == Viewer {
+						client.webRTCViewer.WebRtcAudioStream <- audioPkg
+					}
+				}
+			}
+		}
+
+	}()
 }

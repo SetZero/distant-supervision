@@ -20,10 +20,10 @@ func NewWebRTCViewer() *WebRTCViewer {
 	connectionInfo, err := createPeerConnection(false)
 	if err == nil && connectionInfo != nil {
 		rtc := &WebRTCViewer{send: make(chan OutputMessage, 8192), recv: make(chan []byte, 8192),
-			peerConnection: connectionInfo.peerConnection,
+			peerConnection:    connectionInfo.peerConnection,
 			WebRtcVideoStream: make(chan *webrtc.TrackLocalStaticRTP),
 			WebRtcAudioStream: make(chan *webrtc.TrackLocalStaticRTP),
-			outputTrack: connectionInfo.outputTrack}
+			outputTrack:       connectionInfo.outputTrack}
 		return rtc
 	} else {
 		return nil
@@ -39,8 +39,9 @@ func (r *WebRTCViewer) Recv() chan []byte {
 }
 
 func (r *WebRTCViewer) Start() {
-	go r.startStream(<-r.WebRtcVideoStream)
-	go r.startStream(<-r.WebRtcAudioStream)
+	// TODO: There is another channel which is likely blocking...
+	go r.startStream(<-r.WebRtcVideoStream, "video")
+	go r.startOptionalStream(r.WebRtcAudioStream, "audio")
 
 	r.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		fmt.Printf("[Viewer] Connection State has changed %s \n", connectionState.String())
@@ -72,7 +73,6 @@ func (r *WebRTCViewer) Start() {
 		r.send <- OutputMessage{Data: iceCandidate, Type: messages.IceCandidate}
 	})
 
-	fmt.Println("[Viewer] called this line [73]")
 	for {
 		webRTCMessage := <-r.recv
 
@@ -121,8 +121,10 @@ func (r *WebRTCViewer) Start() {
 	}
 }
 
-func (r *WebRTCViewer) startStream(track *webrtc.TrackLocalStaticRTP) {
+func (r *WebRTCViewer) startStream(track *webrtc.TrackLocalStaticRTP, trackId string) {
+	fmt.Println("Track; ", track)
 	rtpSender, videoErr := r.peerConnection.AddTrack(track)
+	fmt.Printf("[Viewer | %s] Track exists!\n", trackId)
 	if videoErr != nil {
 		panic(videoErr)
 	}
@@ -134,4 +136,8 @@ func (r *WebRTCViewer) startStream(track *webrtc.TrackLocalStaticRTP) {
 			}
 		}
 	}()
+}
+
+func (r *WebRTCViewer) startOptionalStream(stream chan *webrtc.TrackLocalStaticRTP, trackId string) {
+	r.startStream(<-stream, trackId)
 }
