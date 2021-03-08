@@ -14,9 +14,9 @@ type RoomMessage struct {
 
 type RoomInfo struct {
 	roomName string
-	clients map[*Client]bool
+	clients  map[*Client]bool
 	streamer *Client
-	mu      sync.Mutex
+	mu       sync.Mutex
 }
 
 // Hub maintains the set of active clients and broadcasts messages to the
@@ -49,14 +49,20 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case roomJoin := <-h.register:
-			if h.rooms[roomJoin.roomId] == nil {
-				h.rooms[roomJoin.roomId] = &RoomInfo{roomName: roomJoin.roomId, clients: make(map[*Client]bool), streamer: nil}
-				h.broadcast[roomJoin.roomId] = make(chan []byte)
-				h.rebuildChannelAggregator(&agg)
-			}
-			h.rooms[roomJoin.roomId].clients[roomJoin.client] = true
-			m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: h.rooms[roomJoin.roomId].streamer != nil})
-			sendMessageWrapper(roomJoin.client.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
+			func() {
+				if h.rooms[roomJoin.roomId] == nil {
+					h.rooms[roomJoin.roomId] = &RoomInfo{roomName: roomJoin.roomId, clients: make(map[*Client]bool), streamer: nil}
+					h.broadcast[roomJoin.roomId] = make(chan []byte)
+					h.rebuildChannelAggregator(&agg)
+				}
+
+				defer h.rooms[roomJoin.roomId].mu.Unlock()
+				h.rooms[roomJoin.roomId].mu.Lock()
+				
+				h.rooms[roomJoin.roomId].clients[roomJoin.client] = true
+				m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: h.rooms[roomJoin.roomId].streamer != nil})
+				sendMessageWrapper(roomJoin.client.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
+			}()
 		case client := <-h.unregister:
 			if _, ok := h.rooms[client.room]; !ok {
 				break

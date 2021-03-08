@@ -201,13 +201,16 @@ func (c *Client) readMessages(ticker *time.Ticker) bool {
 			sendMessageWrapper(c.conn, MessageWrapper{Type: message.Type, Message: message.Data})
 			break
 		case <-ticker.C:
-			{
+			if func() bool {
 				defer c.mu.Unlock()
 				c.mu.Lock()
 				c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 				if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 					return true
 				}
+				return false
+			}() {
+				return true
 			}
 		}
 	}
