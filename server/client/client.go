@@ -297,11 +297,13 @@ func (c *Client) handleStreamerMessage(message []byte) {
 
 func (c *Client) pumpToViewer() {
 	for {
-		if c.webRTCStreamer != nil && c.webRTCStreamer.WebRtcStream != nil {
-			pkg := <-c.webRTCStreamer.WebRtcStream
+		if c.webRTCStreamer != nil && c.webRTCStreamer.WebRtcVideoStream != nil {
+			videoPkg := <-c.webRTCStreamer.WebRtcVideoStream
+			audioPkg := <-c.webRTCStreamer.WebRtcAudioStream
 			for client := range c.hub.rooms[c.room].clients {
 				if client != c && client.state == Viewer {
-					client.webRTCViewer.WebRtcStream <- pkg
+					client.webRTCViewer.WebRtcVideoStream <- videoPkg
+					client.webRTCViewer.WebRtcAudioStream <- audioPkg
 				}
 			}
 		}

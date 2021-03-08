@@ -1,3 +1,4 @@
+import { off } from "process";
 import React, { useState } from "react";
 
 enum ShareState {
@@ -13,7 +14,6 @@ export enum StreamRole {
 
 const configuration = {
     configuration: {
-        offerToReceiveVideo: true
     },
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 };
@@ -28,9 +28,6 @@ export class WebRTC {
     private videoState = ShareState.INITAL;
     private readonly myId = this.generatRandomId(36);
     private myRoom = window.location.hash || "DEFAULT";
-    //private setActiveCall: React.Dispatch<React.SetStateAction<boolean>>
-    //setActiveViewers: React.Dispatch<React.SetStateAction<number>>
-    //private hasActiveCall: boolean;
     private webRtcStarted = false;
     private streamRole = StreamRole.VIEWER;
     private constraints = {
@@ -40,13 +37,11 @@ export class WebRTC {
             cursor: "never",
             facingMode: "environment"
         },
-        'audio': false
+        'audio': true
     };
 
     constructor(video: React.RefObject<HTMLVideoElement>,
-        finishedLoading: (state: boolean) => void,
-        /*setActiveCall: React.Dispatch<React.SetStateAction<boolean>>,
-        hasActiveCall: boolean, setActiveViewers: React.Dispatch<React.SetStateAction<number>>*/) {
+        finishedLoading: (state: boolean) => void) {
 
         console.log("created object")
         this.video = video;
@@ -64,9 +59,6 @@ export class WebRTC {
             });
             finishedLoading(true);
         });
-        /*this.setActiveCall = setActiveCall;
-        this.hasActiveCall = hasActiveCall;
-        this.setActiveViewers = setActiveViewers*/;
     }
 
     public setOutputVideo(video: React.RefObject<HTMLVideoElement>) {
@@ -126,7 +118,7 @@ export class WebRTC {
             this.stream.getTracks().forEach((track: MediaStreamTrack) => this.peerConnection.addTrack(track, this.stream));
 
         let offer = await this.peerConnection.createOffer({
-            offerToReceiveAudio: false,
+            offerToReceiveAudio: true,
             offerToReceiveVideo: true
         });
         if (offer.sdp) {
@@ -145,7 +137,6 @@ export class WebRTC {
     }
 
     private async acceptCall(message: any) {
-        console.log("message: ", message);
         switch (message.type) {
             case "error":
                 console.log("There was an error while performing websocket communication: ", message.message.Type);
@@ -190,7 +181,7 @@ export class WebRTC {
         this.videoState = ShareState.STABLE;
         if (this.streamRole === StreamRole.VIEWER && this.video.current && this.video.current.srcObject !== e.streams[0]) {
             this.video.current.srcObject = e.streams[0];
-            console.log('received remote stream');
+            console.log('received remote stream', e.streams);
         }
     }
 

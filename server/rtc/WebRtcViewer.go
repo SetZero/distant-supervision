@@ -8,17 +8,22 @@ import (
 )
 
 type WebRTCViewer struct {
-	peerConnection *webrtc.PeerConnection
-	send           chan OutputMessage
-	recv           chan []byte
-	WebRtcStream   chan *webrtc.TrackLocalStaticRTP
-	outputTrack    *webrtc.TrackLocalStaticRTP
+	peerConnection    *webrtc.PeerConnection
+	send              chan OutputMessage
+	recv              chan []byte
+	WebRtcVideoStream chan *webrtc.TrackLocalStaticRTP
+	WebRtcAudioStream chan *webrtc.TrackLocalStaticRTP
+	outputTrack       *webrtc.TrackLocalStaticRTP
 }
 
 func NewWebRTCViewer() *WebRTCViewer {
 	connectionInfo, err := createPeerConnection(false)
 	if err == nil && connectionInfo != nil {
-		rtc := &WebRTCViewer{send: make(chan OutputMessage, 8192), recv: make(chan []byte, 8192), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *webrtc.TrackLocalStaticRTP), outputTrack: connectionInfo.outputTrack}
+		rtc := &WebRTCViewer{send: make(chan OutputMessage, 8192), recv: make(chan []byte, 8192),
+			peerConnection: connectionInfo.peerConnection,
+			WebRtcVideoStream: make(chan *webrtc.TrackLocalStaticRTP),
+			WebRtcAudioStream: make(chan *webrtc.TrackLocalStaticRTP),
+			outputTrack: connectionInfo.outputTrack}
 		return rtc
 	} else {
 		return nil
@@ -34,19 +39,8 @@ func (r *WebRTCViewer) Recv() chan []byte {
 }
 
 func (r *WebRTCViewer) Start() {
-	rtpSender, err := r.peerConnection.AddTrack(<-r.WebRtcStream)
-	if err != nil {
-		panic(err)
-	}
-	go func() {
-		rtcpBuf := make([]byte, 4096)
-		for {
-			if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
-				fmt.Println(rtcpBuf)
-				return
-			}
-		}
-	}()
+	go r.startStream(<-r.WebRtcVideoStream)
+	go r.startStream(<-r.WebRtcAudioStream)
 
 	r.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		fmt.Printf("[Viewer] Connection State has changed %s \n", connectionState.String())
@@ -67,8 +61,10 @@ func (r *WebRTCViewer) Start() {
 
 	r.peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		fmt.Println("Canidate: ", candidate)
-		if candidate == nil { return }
-		 iceCandidate, err := json.Marshal(candidate.ToJSON())
+		if candidate == nil {
+			return
+		}
+		iceCandidate, err := json.Marshal(candidate.ToJSON())
 		if err != nil || iceCandidate == nil {
 			println("Error with Ice canidate")
 			return
@@ -76,14 +72,17 @@ func (r *WebRTCViewer) Start() {
 		r.send <- OutputMessage{Data: iceCandidate, Type: messages.IceCandidate}
 	})
 
+	fmt.Println("[Viewer] called this line [73]")
 	for {
 		webRTCMessage := <-r.recv
 
 		var m messageWrapper
 		err := json.Unmarshal(webRTCMessage, &m)
+		fmt.Println("[Viewer] got message of type: ", m.Type)
 		if err == nil {
 			switch m.Type {
 			case WebRTCOffer:
+				fmt.Println("Got offer from viewer")
 				var offerMessage webRtcOffer
 				json.Unmarshal(m.Message, &offerMessage)
 				offer := webrtc.SessionDescription{}
@@ -120,4 +119,19 @@ func (r *WebRTCViewer) Start() {
 			fmt.Println("Error: ", err)
 		}
 	}
+}
+
+func (r *WebRTCViewer) startStream(track *webrtc.TrackLocalStaticRTP) {
+	rtpSender, videoErr := r.peerConnection.AddTrack(track)
+	if videoErr != nil {
+		panic(videoErr)
+	}
+	go func() {
+		rtcpBuf := make([]byte, 1500)
+		for {
+			if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
+				return
+			}
+		}
+	}()
 }

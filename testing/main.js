@@ -1,12 +1,13 @@
 const constraints = {
     'video': true,
-    'audio': false
+    'audio': true
 }
 var conn;
 const myId = generatRandomId(36);
 const configuration = {
     configuration: {
-        offerToReceiveVideo: true
+        offerToReceiveVideo: true,
+        offerToReceiveAudio: true
     },
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 };

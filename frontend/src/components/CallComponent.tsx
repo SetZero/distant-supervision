@@ -72,7 +72,6 @@ export const CallComponent: React.FC<CallProps> = () => {
         }
     }
 
-    //<video id="localVideo" autoPlay playsInline controls={true} ref={video} className={classes.video}></video>
     let streamInfo = hasActiveCall ?
         (
             <Grid item xs={12} >

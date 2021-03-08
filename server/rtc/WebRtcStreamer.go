@@ -8,22 +8,28 @@ import (
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc"
 	"io"
+	"strings"
 	"time"
 )
 
 type WebRTCStreamer struct {
-	peerConnection *webrtc.PeerConnection
-	send           chan OutputMessage
-	recv           chan []byte
-	WebRtcStream   chan *webrtc.TrackLocalStaticRTP
-	track          *webrtc.TrackRemote
-	currentBitrate uint64
+	peerConnection    *webrtc.PeerConnection
+	send              chan OutputMessage
+	recv              chan []byte
+	WebRtcVideoStream chan *webrtc.TrackLocalStaticRTP
+	WebRtcAudioStream chan *webrtc.TrackLocalStaticRTP
+	track             *webrtc.TrackRemote
+	currentBitrate    uint64
 }
 
 func NewWebRTCStreamer() *WebRTCStreamer {
 	connectionInfo, err := createPeerConnection(true)
 	if err == nil && connectionInfo != nil {
-		rtc := &WebRTCStreamer{send: make(chan OutputMessage, 8192), recv: make(chan []byte, 8192), peerConnection: connectionInfo.peerConnection, WebRtcStream: make(chan *webrtc.TrackLocalStaticRTP)}
+		rtc := &WebRTCStreamer{send: make(chan OutputMessage, 8192),
+			recv:              make(chan []byte, 8192),
+			peerConnection:    connectionInfo.peerConnection,
+			WebRtcVideoStream: make(chan *webrtc.TrackLocalStaticRTP),
+			WebRtcAudioStream: make(chan *webrtc.TrackLocalStaticRTP)}
 		return rtc
 	} else {
 		return nil
@@ -43,7 +49,12 @@ func (r *WebRTCStreamer) Start() {
 		panic(err)
 	}
 
+	if _, err := r.peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo); err != nil {
+		panic(err)
+	}
+
 	r.peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		fmt.Println("Track: ", track)
 		r.track = track
 		go func() {
 			ticker := time.NewTicker(3 * time.Second)
@@ -58,14 +69,16 @@ func (r *WebRTCStreamer) Start() {
 			}
 		}()
 
-		fmt.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().MimeType)
-		localTrack, newTrackErr := webrtc.NewTrackLocalStaticRTP(track.Codec().RTPCodecCapability, "video", "pion")
-		if newTrackErr != nil {
-			panic(newTrackErr)
-		}
-		r.WebRtcStream <- localTrack
+		var localTrack *webrtc.TrackLocalStaticRTP
 
-		rtpBuf := make([]byte, 1400)
+		fmt.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().MimeType)
+		if strings.HasPrefix(track.Codec().MimeType, "video") {
+			localTrack = r.setupTrack(track, r.WebRtcVideoStream, "video")
+		} else if strings.HasPrefix(track.Codec().MimeType, "audio") {
+			localTrack = r.setupTrack(track, r.WebRtcAudioStream, "audio")
+		}
+
+		rtpBuf := make([]byte, 1500)
 		for {
 			i, _, readErr := track.Read(rtpBuf)
 			if readErr != nil {
@@ -77,7 +90,6 @@ func (r *WebRTCStreamer) Start() {
 				panic(err)
 			}
 		}
-
 	})
 
 	r.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
@@ -146,7 +158,7 @@ func (r *WebRTCStreamer) Start() {
 				json.Unmarshal(m.Message, &bitrateOffer)
 				if bitrateOffer.Bitrate > 0 && r.track != nil {
 					r.currentBitrate = bitrateOffer.Bitrate * 1024
-					fmt.Println("Changed Bitrate to: ", bitrateOffer.Bitrate * 1024)
+					fmt.Println("Changed Bitrate to: ", bitrateOffer.Bitrate*1024)
 				}
 				break
 			}
@@ -154,4 +166,14 @@ func (r *WebRTCStreamer) Start() {
 			fmt.Println("Error: ", err)
 		}
 	}
+}
+
+func (r *WebRTCStreamer) setupTrack(track *webrtc.TrackRemote, input chan *webrtc.TrackLocalStaticRTP, trackId string) *webrtc.TrackLocalStaticRTP {
+	localTrack, newTrackErr := webrtc.NewTrackLocalStaticRTP(track.Codec().RTPCodecCapability, trackId, "pion")
+	if newTrackErr != nil {
+		panic(newTrackErr)
+	}
+	fmt.Println("Sending Track: ", trackId)
+	input <- localTrack
+	return localTrack
 }
