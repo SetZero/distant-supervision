@@ -50,6 +50,7 @@ export const CallComponent: React.FC<CallProps> = () => {
     const resolution = useSelector((state: any) => state.streamResolution);
     const dispatch = useDispatch();
     const loadingFinished = (state: boolean) => { dispatch(finishedLoading(state)) };
+    const streamRoleState: StreamRole = useSelector((state: any) => state.streamRole);
 
     useEffect(() => {
         if (!webRTC) {
@@ -95,7 +96,7 @@ export const CallComponent: React.FC<CallProps> = () => {
                     <Box>
                         <Grid container>
                             <Grid item xs={12} sm={10} className={classes.videoContainer}>
-                                <video id="localVideo" autoPlay playsInline controls={true} ref={video} className={classes.video}></video>
+                                <video id="localVideo" autoPlay playsInline controls={true} ref={video} className={classes.video} muted={streamRoleState === StreamRole.STREAMER}></video>
                             </Grid>
                             <Grid item xs={12} sm={2} className={classes.chatContainer}>
                                 <Grid container>
