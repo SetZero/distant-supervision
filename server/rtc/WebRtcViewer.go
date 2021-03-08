@@ -94,16 +94,22 @@ func (r *WebRTCViewer) Start() {
 
 				answer, err := r.peerConnection.CreateAnswer(nil)
 				if err != nil {
-					panic(err)
+					fmt.Errorf("Error: %s\n", err)
+					r.peerConnection.Close()
+					return
 				}
 				jsonAnswer, err := json.Marshal(answer)
 				if err != nil {
-					panic(err)
+					fmt.Errorf("Error: %s\n", err)
+					r.peerConnection.Close()
+					return
 				}
 				r.send <- OutputMessage{Data: jsonAnswer, Type: messages.AnswerType}
 
 				if err = r.peerConnection.SetLocalDescription(answer); err != nil {
-					panic(err)
+					fmt.Errorf("Error: %s\n", err)
+					r.peerConnection.Close()
+					return
 				}
 				break
 			case IceCandidate:
@@ -126,7 +132,9 @@ func (r *WebRTCViewer) startStream(track *webrtc.TrackLocalStaticRTP, trackId st
 	rtpSender, videoErr := r.peerConnection.AddTrack(track)
 	fmt.Printf("[Viewer | %s] Track exists!\n", trackId)
 	if videoErr != nil {
-		panic(videoErr)
+		fmt.Errorf("Error: %s\n", videoErr)
+		r.peerConnection.Close()
+		return
 	}
 	go func() {
 		rtcpBuf := make([]byte, 1500)
