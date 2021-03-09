@@ -29,15 +29,6 @@ func createPeerConnection(expectStream bool) (*WebRtcInfo, error) {
 	var outputTrack *webrtc.TrackLocalStaticRTP
 	var err error
 	if expectStream {
-		/*m := webrtc.MediaEngine{}
-		if err := m.RegisterCodec(webrtc.RTPCodecParameters{
-			RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "video/VP8", ClockRate: 90000, Channels: 0, SDPFmtpLine: "", RTCPFeedback: nil},
-			PayloadType:        96,
-		}, webrtc.RTPCodecTypeVideo); err != nil {
-			panic(err)
-		}
-		api := webrtc.NewAPI(webrtc.WithMediaEngine(&m))
-		peerConnection, _ = api.NewPeerConnection(config)*/
 		// Create a new RTCPeerConnection
 		peerConnection, err = webrtc.NewPeerConnection(config)
 		if err != nil {

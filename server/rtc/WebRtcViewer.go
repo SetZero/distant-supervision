@@ -53,34 +53,9 @@ func (r *WebRTCViewer) Start() {
 	go r.startStream(<-r.WebRtcVideoStream, "video")
 	go r.startOptionalStream(r.WebRtcAudioStream, "audio")
 
-	r.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		logger.InfoLogger.Printf("[Viewer] Connection State has changed %s \n", connectionState.String())
-		if connectionState == webrtc.ICEConnectionStateFailed ||
-			connectionState == webrtc.ICEConnectionStateDisconnected {
-			fmt.Println("TODO: Close stuff")
-		}
-
-		if connectionState == webrtc.ICEConnectionStateConnected {
-			//stats, _ := json.Marshal(r.peerConnection.GetStats())
-			logger.InfoLogger.Println("Connected to ICE")
-		}
-	})
-
-	r.peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		fmt.Println("Got Track")
-	})
-
-	r.peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
-		if candidate == nil {
-			return
-		}
-		iceCandidate, err := json.Marshal(candidate.ToJSON())
-		if err != nil || iceCandidate == nil {
-			println("Error with Ice canidate")
-			return
-		}
-		r.send <- OutputMessage{Data: iceCandidate, Type: messages.IceCandidate}
-	})
+	r.peerConnection.OnICEConnectionStateChange(r.onICEConnectionStateChange)
+	r.peerConnection.OnTrack(r.onTrack)
+	r.peerConnection.OnICECandidate(r.onICECandidate)
 
 	for {
 		webRTCMessage := <-r.recv
@@ -154,4 +129,37 @@ func (r *WebRTCViewer) startStream(track *webrtc.TrackLocalStaticRTP, trackId st
 
 func (r *WebRTCViewer) startOptionalStream(stream chan *webrtc.TrackLocalStaticRTP, trackId string) {
 	r.startStream(<-stream, trackId)
+}
+
+func (r *WebRTCViewer) onTrack(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+	fmt.Println("Got Track")
+}
+
+func (r *WebRTCViewer) onICECandidate(candidate *webrtc.ICECandidate) {
+	if candidate == nil {
+		return
+	}
+	iceCandidate, err := json.Marshal(candidate.ToJSON())
+	if err != nil || iceCandidate == nil {
+		println("Error with Ice canidate")
+		return
+	}
+	r.send <- OutputMessage{Data: iceCandidate, Type: messages.IceCandidate}
+}
+
+func (r *WebRTCViewer) onICEConnectionStateChange(connectionState webrtc.ICEConnectionState) {
+	logger.InfoLogger.Printf("[Viewer] Connection State has changed %s \n", connectionState.String())
+	if connectionState == webrtc.ICEConnectionStateFailed ||
+		connectionState == webrtc.ICEConnectionStateDisconnected {
+		logger.InfoLogger.Printf("[Viewer] Connection State has changed %s \n", connectionState.String())
+		err := r.peerConnection.Close()
+		if err != nil {
+			logger.InfoLogger.Printf("Failed to Close Peer Connection: %s \n", err)
+		}
+	}
+
+	if connectionState == webrtc.ICEConnectionStateConnected {
+		//stats, _ := json.Marshal(r.peerConnection.GetStats())
+		logger.InfoLogger.Println("Connected to ICE")
+	}
 }
