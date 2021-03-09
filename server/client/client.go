@@ -1,6 +1,7 @@
 package client
 
 import (
+	"../logger"
 	"../messages"
 	"../rtc"
 	"encoding/json"
@@ -226,12 +227,14 @@ func (c *Client) handleInitialMessage(message []byte) {
 		errorMessage.writeError(c.conn)
 	} else {
 		c.room = rj.RoomId
-		fmt.Println("joined!")
 		c.hub.register <- &RoomJoin{client: c, roomId: rj.RoomId}
 		if c.hub.rooms[rj.RoomId] != nil && c.hub.rooms[rj.RoomId].streamer != nil {
 			c.lateStartClient()
+			logger.InfoLogger.Printf("Client Joined. Total Clients in Room: %d\n", c.hub.rooms[c.room].GetClientsInRoom())
 		} else {
 			c.state = WaitingForStream
+
+			logger.InfoLogger.Printf("Client Joined. Room: %s, Total Clients: %d\n", c.room, c.hub.rooms[c.room].GetClientsInRoom())
 		}
 	}
 }

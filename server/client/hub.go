@@ -1,25 +1,14 @@
 package client
 
 import (
+	"../logger"
 	"../messages"
 	"encoding/json"
-	"fmt"
-	"github.com/pion/webrtc"
-	"sync"
 )
 
 type RoomMessage struct {
 	room             string
 	broadcastMessage []byte
-}
-
-type RoomInfo struct {
-	roomName    string
-	clients     map[*Client]bool
-	streamer    *Client
-	mu          sync.Mutex
-	VideoStream *webrtc.TrackLocalStaticRTP
-	AudioStream *webrtc.TrackLocalStaticRTP
 }
 
 // Hub maintains the set of active clients and broadcasts messages to the
@@ -81,7 +70,11 @@ func (h *Hub) Run() {
 				}
 				delete(h.rooms[client.room].clients, client)
 				close(client.send)
-				fmt.Println("removed!")
+				logger.InfoLogger.Printf("Client left. Clients left: %d\n", len(h.rooms[client.room].clients))
+				if len(h.rooms[client.room].clients) == 0 {
+					delete(h.rooms, client.room)
+					logger.InfoLogger.Printf("Removed Room: %s, remaining rooms: %d\n", client.room, len(h.rooms))
+				}
 			}
 		case roomMessages := <-agg:
 			for client := range h.rooms[roomMessages.room].clients {

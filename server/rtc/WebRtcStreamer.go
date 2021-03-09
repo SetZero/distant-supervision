@@ -1,6 +1,7 @@
 package rtc
 
 import (
+	"../logger"
 	"../messages"
 	"encoding/json"
 	"errors"
@@ -53,9 +54,7 @@ func (r *WebRTCStreamer) Start() {
 		panic(err)
 	}
 
-
 	r.peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		fmt.Println("Track: ", track)
 		r.track = track
 		go func() {
 			ticker := time.NewTicker(3 * time.Second)
@@ -72,7 +71,7 @@ func (r *WebRTCStreamer) Start() {
 
 		var localTrack *webrtc.TrackLocalStaticRTP
 
-		fmt.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().MimeType)
+		logger.InfoLogger.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().MimeType)
 		if strings.HasPrefix(track.Codec().MimeType, "video") {
 			localTrack = r.setupTrack(track, r.WebRtcVideoStream, "video")
 		} else if strings.HasPrefix(track.Codec().MimeType, "audio") {
@@ -94,7 +93,7 @@ func (r *WebRTCStreamer) Start() {
 	})
 
 	r.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("[Streamer] Connection State has changed %s \n", connectionState.String())
+		logger.InfoLogger.Printf("[Streamer] Connection State has changed %s \n", connectionState.String())
 		if connectionState == webrtc.ICEConnectionStateFailed ||
 			connectionState == webrtc.ICEConnectionStateDisconnected {
 			fmt.Println("Done writing media files")
@@ -102,7 +101,6 @@ func (r *WebRTCStreamer) Start() {
 	})
 
 	r.peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
-		fmt.Println("Canidate: ", candidate)
 		if candidate == nil {
 			return
 		}
@@ -122,7 +120,7 @@ func (r *WebRTCStreamer) Start() {
 		if err == nil {
 			switch m.Type {
 			case WebRTCOffer:
-				fmt.Println("check")
+				logger.InfoLogger.Printf("Starting stream\n")
 				var offerMessage webRtcOffer
 				json.Unmarshal(m.Message, &offerMessage)
 				offer := webrtc.SessionDescription{}
@@ -174,7 +172,6 @@ func (r *WebRTCStreamer) setupTrack(track *webrtc.TrackRemote, input chan *webrt
 	if newTrackErr != nil {
 		panic(newTrackErr)
 	}
-	fmt.Println("Sending Track: ", trackId)
 	input <- localTrack
 	return localTrack
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"./client"
+	"./logger"
 	"flag"
 	"fmt"
 	"github.com/gorilla/websocket"
@@ -49,7 +50,7 @@ func serveWs(hub *client.Hub, w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	fmt.Println("Started!")
+	logger.InfoLogger.Println("WebRTC Server Started")
 	flag.Parse()
 	hub := client.NewHub()
 	go hub.Run()

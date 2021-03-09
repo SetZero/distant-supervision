@@ -113,6 +113,7 @@ export class WebRTC {
         this.peerConnection = new RTCPeerConnection(configuration);
         this.peerConnection.addEventListener('icecandidate', e => this.onIceCandidate(this.peerConnection, e));
         this.peerConnection.addEventListener('iceconnectionstatechange', e => this.onIceStateChange(this.peerConnection, e));
+        this.peerConnection.addEventListener('connectionstatechange', e => this.connectionStateChange(e));
         this.peerConnection.addEventListener('track', e => this.gotRemoteStream(e));
         if (this.stream)
             this.stream.getTracks().forEach((track: MediaStreamTrack) => this.peerConnection.addTrack(track, this.stream));
@@ -207,5 +208,9 @@ export class WebRTC {
                 console.log(((event.target) as RTCPeerConnection)?.iceConnectionState);
             }
         }
+    }
+
+    private connectionStateChange(event: Event) {
+        console.log("event state change: ", event);
     }
 }

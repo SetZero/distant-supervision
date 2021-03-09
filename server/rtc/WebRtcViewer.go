@@ -1,6 +1,7 @@
 package rtc
 
 import (
+	"../logger"
 	"../messages"
 	"encoding/json"
 	"fmt"
@@ -53,15 +54,15 @@ func (r *WebRTCViewer) Start() {
 	go r.startOptionalStream(r.WebRtcAudioStream, "audio")
 
 	r.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("[Viewer] Connection State has changed %s \n", connectionState.String())
+		logger.InfoLogger.Printf("[Viewer] Connection State has changed %s \n", connectionState.String())
 		if connectionState == webrtc.ICEConnectionStateFailed ||
 			connectionState == webrtc.ICEConnectionStateDisconnected {
 			fmt.Println("TODO: Close stuff")
 		}
 
 		if connectionState == webrtc.ICEConnectionStateConnected {
-			stats, _ := json.Marshal(r.peerConnection.GetStats())
-			fmt.Println("Connected... ", string(stats))
+			//stats, _ := json.Marshal(r.peerConnection.GetStats())
+			logger.InfoLogger.Println("Connected to ICE")
 		}
 	})
 
@@ -70,7 +71,6 @@ func (r *WebRTCViewer) Start() {
 	})
 
 	r.peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
-		fmt.Println("Canidate: ", candidate)
 		if candidate == nil {
 			return
 		}
@@ -87,11 +87,9 @@ func (r *WebRTCViewer) Start() {
 
 		var m messageWrapper
 		err := json.Unmarshal(webRTCMessage, &m)
-		fmt.Println("[Viewer] got message of type: ", m.Type)
 		if err == nil {
 			switch m.Type {
 			case WebRTCOffer:
-				fmt.Println("Got offer from viewer")
 				var offerMessage webRtcOffer
 				json.Unmarshal(m.Message, &offerMessage)
 				offer := webrtc.SessionDescription{}
@@ -137,9 +135,8 @@ func (r *WebRTCViewer) Start() {
 }
 
 func (r *WebRTCViewer) startStream(track *webrtc.TrackLocalStaticRTP, trackId string) {
-	fmt.Println("Track; ", track)
 	rtpSender, videoErr := r.peerConnection.AddTrack(track)
-	fmt.Printf("[Viewer | %s] Track exists!\n", trackId)
+	logger.InfoLogger.Printf("[Viewer | %s] Track exists!\n", trackId)
 	if videoErr != nil {
 		fmt.Errorf("Error: %s\n", videoErr)
 		r.peerConnection.Close()
@@ -158,5 +155,3 @@ func (r *WebRTCViewer) startStream(track *webrtc.TrackLocalStaticRTP, trackId st
 func (r *WebRTCViewer) startOptionalStream(stream chan *webrtc.TrackLocalStaticRTP, trackId string) {
 	r.startStream(<-stream, trackId)
 }
-
-
