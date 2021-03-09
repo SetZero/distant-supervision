@@ -225,15 +225,14 @@ func (c *Client) handleInitialMessage(message []byte) {
 		errorMessage := ErrorMessage{Type: InvalidMessage, Description: "failed to register before sending messages!"}
 		errorMessage.writeError(c.conn)
 	} else {
+		c.room = rj.RoomId
+		fmt.Println("joined!")
 		c.hub.register <- &RoomJoin{client: c, roomId: rj.RoomId}
 		if c.hub.rooms[rj.RoomId] != nil && c.hub.rooms[rj.RoomId].streamer != nil {
-			c.setStateToViewer(c.hub.rooms[rj.RoomId])
+			c.lateStartClient()
 		} else {
 			c.state = WaitingForStream
 		}
-
-		c.room = rj.RoomId
-		fmt.Println("joined!")
 	}
 }
 
@@ -249,7 +248,14 @@ func (c *Client) setStateToViewer(roomInfo *RoomInfo) {
 func (c *Client) sendViewerUpdate(roomInfo *RoomInfo) {
 	defer c.mu.Unlock()
 	c.mu.Lock()
-	var viewer = len(roomInfo.clients)
+
+	var viewer int
+	if roomInfo != nil {
+		viewer = len(roomInfo.clients)
+	} else {
+		return
+	}
+
 	m, _ := json.Marshal(ViewerMessage{Viewers: uint32(viewer)})
 	for client := range roomInfo.clients {
 		sendMessageWrapper(client.conn, MessageWrapper{Type: messages.CurrentViewerUpdate, Message: m})
@@ -297,23 +303,34 @@ func (c *Client) handleStreamerMessage(message []byte) {
 
 func (c *Client) startClients() {
 	for client := range c.hub.rooms[c.room].clients {
-		m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
-		sendMessageWrapper(client.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
-		if client != c {
-			client.setStateToViewer(c.hub.rooms[c.room])
-			go client.webRTCViewer.Start()
-		}
+		c.startClient(client)
 	}
+}
+
+func (c *Client) startClient(client *Client) {
+	m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
+	sendMessageWrapper(client.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
+	if client != c {
+		client.setStateToViewer(c.hub.rooms[c.room])
+		//go client.webRTCViewer.LateStart(c.hub.rooms[c.room].VideoStream, c.hub.rooms[c.room].AudioStream)
+		go client.webRTCViewer.Start()
+	}
+}
+func (c *Client) lateStartClient() {
+	m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: true})
+	sendMessageWrapper(c.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})
+	c.setStateToViewer(c.hub.rooms[c.room])
+	go c.webRTCViewer.LateStart(c.hub.rooms[c.room].VideoStream, c.hub.rooms[c.room].AudioStream)
 }
 
 func (c *Client) pumpToViewer() {
 	go func() {
 		for {
 			if c.webRTCStreamer != nil && c.webRTCStreamer.WebRtcVideoStream != nil {
-				videoPkg := <-c.webRTCStreamer.WebRtcVideoStream
+				c.hub.rooms[c.room].VideoStream = <-c.webRTCStreamer.WebRtcVideoStream
 				for client := range c.hub.rooms[c.room].clients {
 					if client != c && client.state == Viewer {
-						client.webRTCViewer.WebRtcVideoStream <- videoPkg
+						client.webRTCViewer.WebRtcVideoStream <- c.hub.rooms[c.room].VideoStream
 					}
 				}
 			}
@@ -324,10 +341,10 @@ func (c *Client) pumpToViewer() {
 	go func() {
 		for {
 			if c.webRTCStreamer != nil && c.webRTCStreamer.WebRtcAudioStream != nil {
-				audioPkg := <-c.webRTCStreamer.WebRtcAudioStream
+				c.hub.rooms[c.room].AudioStream = <-c.webRTCStreamer.WebRtcAudioStream
 				for client := range c.hub.rooms[c.room].clients {
 					if client != c && client.state == Viewer {
-						client.webRTCViewer.WebRtcAudioStream <- audioPkg
+						client.webRTCViewer.WebRtcAudioStream <- c.hub.rooms[c.room].AudioStream
 					}
 				}
 			}

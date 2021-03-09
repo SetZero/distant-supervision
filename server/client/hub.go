@@ -4,6 +4,7 @@ import (
 	"../messages"
 	"encoding/json"
 	"fmt"
+	"github.com/pion/webrtc"
 	"sync"
 )
 
@@ -13,10 +14,12 @@ type RoomMessage struct {
 }
 
 type RoomInfo struct {
-	roomName string
-	clients  map[*Client]bool
-	streamer *Client
-	mu       sync.Mutex
+	roomName    string
+	clients     map[*Client]bool
+	streamer    *Client
+	mu          sync.Mutex
+	VideoStream *webrtc.TrackLocalStaticRTP
+	AudioStream *webrtc.TrackLocalStaticRTP
 }
 
 // Hub maintains the set of active clients and broadcasts messages to the
@@ -58,7 +61,7 @@ func (h *Hub) Run() {
 
 				defer h.rooms[roomJoin.roomId].mu.Unlock()
 				h.rooms[roomJoin.roomId].mu.Lock()
-				
+
 				h.rooms[roomJoin.roomId].clients[roomJoin.client] = true
 				m, _ := json.Marshal(StreamerMessage{RoomHasStreamer: h.rooms[roomJoin.roomId].streamer != nil})
 				sendMessageWrapper(roomJoin.client.conn, MessageWrapper{Type: messages.JoinRoomSuccessType, Message: m})

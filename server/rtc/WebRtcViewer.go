@@ -21,8 +21,8 @@ func NewWebRTCViewer() *WebRTCViewer {
 	if err == nil && connectionInfo != nil {
 		rtc := &WebRTCViewer{send: make(chan OutputMessage, 8192), recv: make(chan []byte, 8192),
 			peerConnection:    connectionInfo.peerConnection,
-			WebRtcVideoStream: make(chan *webrtc.TrackLocalStaticRTP),
-			WebRtcAudioStream: make(chan *webrtc.TrackLocalStaticRTP),
+			WebRtcVideoStream: make(chan *webrtc.TrackLocalStaticRTP, 1),
+			WebRtcAudioStream: make(chan *webrtc.TrackLocalStaticRTP, 1),
 			outputTrack:       connectionInfo.outputTrack}
 		return rtc
 	} else {
@@ -38,8 +38,17 @@ func (r *WebRTCViewer) Recv() chan []byte {
 	return r.recv
 }
 
+func (r *WebRTCViewer) LateStart(videoStream *webrtc.TrackLocalStaticRTP, audioStream *webrtc.TrackLocalStaticRTP) {
+	if videoStream != nil {
+		r.WebRtcVideoStream <- videoStream
+		if audioStream != nil {
+			r.WebRtcAudioStream <- audioStream
+		}
+		r.Start()
+	}
+}
+
 func (r *WebRTCViewer) Start() {
-	// TODO: There is another channel which is likely blocking...
 	go r.startStream(<-r.WebRtcVideoStream, "video")
 	go r.startOptionalStream(r.WebRtcAudioStream, "audio")
 
@@ -149,3 +158,5 @@ func (r *WebRTCViewer) startStream(track *webrtc.TrackLocalStaticRTP, trackId st
 func (r *WebRTCViewer) startOptionalStream(stream chan *webrtc.TrackLocalStaticRTP, trackId string) {
 	r.startStream(<-stream, trackId)
 }
+
+
