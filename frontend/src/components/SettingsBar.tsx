@@ -1,8 +1,8 @@
 import { MenuItem, Select } from "@material-ui/core";
-import { Box, Drawer, InputAdornment, TextField } from "@material-ui/core";
+import { Box, Drawer, InputAdornment, TextField, Switch  } from "@material-ui/core";
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { showSettings, bitRateChange, setResolution } from "../store/actions/rootActions";
+import { showSettings, bitRateChange, setResolution, darkMode } from "../store/actions/rootActions";
 
 interface SettingsBarProps {
 }
@@ -12,6 +12,8 @@ export const SettingsBar: React.FC<SettingsBarProps> = ({ }) => {
     const bitrate = useSelector((state: any) => state.bitrate);
     const resolution = useSelector((state: any) => state.streamResolution);
     const streamStarted = useSelector((state: any) => state.streamStarted);
+    const prefersDarkMode = useSelector((state: any) => state.darkMode);
+
     const dispatch = useDispatch();
     let resolutions = [
         { name: "240p", value: { x: 426, y: 240 } },
@@ -57,6 +59,15 @@ export const SettingsBar: React.FC<SettingsBarProps> = ({ }) => {
                         <MenuItem value={JSON.stringify(resolution.value)} key={index}>{resolution.name}</MenuItem>
                     ))}
                 </Select>
+            </Box>
+            <Box m={2}>
+                <Switch
+                    checked={prefersDarkMode}
+                    onChange={(e) => { dispatch(darkMode(e.target.checked)) }}
+                    color="primary"
+                    name="checkedB"
+                    inputProps={{ 'aria-label': 'primary checkbox' }}
+                />
             </Box>
         </Drawer>
     </React.Fragment>);

@@ -3,6 +3,11 @@ export const bitRateChange = (newBitrate) => ({
     payload: {bitrate: newBitrate}
 });
 
+export const darkMode = (darkMode) => ({
+    type: "settings/darkMode",
+    payload: {darkMode: darkMode}
+});
+
 export const showSettings = (show) => ({
     type: "settings/show",
     payload: {showSettings: show}

@@ -18,7 +18,7 @@ const useStyles = makeStyles((theme) => ({
         backgroundColor: '#000000'
     },
     chatContainer: {
-        backgroundColor: '#DDDDDD',
+        backgroundColor: theme.palette.background.paper,
         flexGrow: 1,
         flexShrink: 1,
         flexBasis: 'auto',
