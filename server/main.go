@@ -41,7 +41,7 @@ func serveWs(hub *client.Hub, w http.ResponseWriter, r *http.Request) {
 	}
 	sc := client.SafeConnection{Conn: conn}
 	cli := client.NewClient(hub, &sc)
-	// client.hub.register <- client
+	// client.hub.register <- clientN
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
