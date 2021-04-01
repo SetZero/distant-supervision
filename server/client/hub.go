@@ -4,6 +4,7 @@ import (
 	"../logger"
 	"../messages"
 	"encoding/json"
+	"fmt"
 )
 
 type RoomMessage struct {
@@ -48,7 +49,9 @@ func (h *Hub) Run() {
 					h.rebuildChannelAggregator(&agg)
 				}
 
+				fmt.Printf("Using: %p\n", &h.rooms[roomJoin.roomId].mu)
 				defer h.rooms[roomJoin.roomId].mu.Unlock()
+				defer fmt.Println("Freed Lock...")
 				h.rooms[roomJoin.roomId].mu.Lock()
 
 				h.rooms[roomJoin.roomId].clients[roomJoin.client] = true

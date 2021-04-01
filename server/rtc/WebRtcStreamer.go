@@ -180,7 +180,7 @@ func (r *WebRTCStreamer) onTrack(track *webrtc.TrackRemote, receiver *webrtc.RTP
 	for {
 		i, _, readErr := track.Read(rtpBuf)
 		if readErr != nil {
-			panic(readErr)
+			return
 		}
 
 		// ErrClosedPipe means we don't have any subscribers, this is ok if no peers have connected yet

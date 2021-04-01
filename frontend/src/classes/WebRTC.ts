@@ -158,7 +158,21 @@ export class WebRTC {
                 }
                 break;
             case "answer":
-                const t = message.message;
+                let t = message.message;
+
+                /* screw webrtc specs */
+                var arr = t.sdp.split('\r\n');
+                arr.forEach((str: string, i: number) => {
+                    if (/^a=fmtp:\d*/.test(str)) {
+                        arr[i] = str + ';x-google-max-bitrate=1000000;x-google-min-bitrate=600000;x-google-start-bitrate=1200000';
+                    } else if (/^a=mid:(1|video)/.test(str)) {
+                        arr[i] += '\r\nb=AS:100000';
+                    }
+                });
+                t = new RTCSessionDescription({
+                    type: 'answer',
+                    sdp: arr.join('\r\n'),
+                });
                 this.peerConnection.setRemoteDescription(t);
                 break;
             case "newIceCandidate":
