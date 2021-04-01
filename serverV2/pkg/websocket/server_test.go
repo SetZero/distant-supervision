@@ -1,12 +1,18 @@
 package websocket
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 import "github.com/onsi/gomega"
 
 func TestMultipleStart(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	s := NewServer()
+
 	go s.Start()
-	g.Expect(s.Start).To(gomega.Panic(), "Expected Panic on multiple start calls, got none")
+	time.Sleep(400 * time.Millisecond)
+
+	g.Expect(s.Start).Should(gomega.PanicWith("Start() should only be called once!"), "Expected Panic on multiple start calls, got none")
 }
