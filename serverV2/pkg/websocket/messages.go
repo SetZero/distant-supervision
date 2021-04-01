@@ -1,0 +1,14 @@
+package websocket
+
+type MessageType string
+
+const (
+	ErrorMessageType    MessageType = "error"
+	JoinMessageType                 = "joinMessage"
+	JoinRoomSuccessType             = "joinedMessage"
+	StartStreamType                 = "startStream"
+	RequestStreamerType             = "requestStreamer"
+	AnswerType                      = "answer"
+	IceCandidate                    = "newIceCandidate"
+	CurrentViewerUpdate             = "currentViewers"
+)
