@@ -1,15 +1,12 @@
 package data
 
-import (
-	"github.com/SetZero/distant-supervision/pkg/websocket"
-)
-
 type Hub struct {
+	rooms map[string]*Room
 }
 
-func (h Hub) WaitForUser(channel chan *websocket.Connection) {
-
-}
+// TODO:
+// <- userJoin
+// <- userLeft
 
 func NewHub() *Hub {
 	return &Hub{}

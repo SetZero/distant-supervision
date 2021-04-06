@@ -12,3 +12,7 @@ const (
 	IceCandidate                    = "newIceCandidate"
 	CurrentViewerUpdate             = "currentViewers"
 )
+
+type JoinRoomMessage struct {
+	RoomId string `json:"roomId"`
+}

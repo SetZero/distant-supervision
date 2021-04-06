@@ -1,10 +1,12 @@
 package websocket
 
 import (
+	"fmt"
 	"github.com/SetZero/distant-supervision/pkg/logger"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"net/url"
 )
 
 type Server struct {
@@ -12,8 +14,8 @@ type Server struct {
 }
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  8192,
-	WriteBufferSize: 8192,
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 }
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
@@ -38,16 +40,20 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.JoinChannel <- &Connection{conn: conn}
+	logger.Info.Println("New User Joined")
+	s.JoinChannel <- NewConnection(conn)
 }
 
 func NewServer() *Server {
 	return &Server{}
 }
 
-func (s *Server) Start() {
+func (s *Server) Start(addr url.URL) {
 	if s.JoinChannel != nil {
 		panic("Start() should only be called once!")
+	}
+	if addr.Scheme != "ws" && addr.Scheme != "wss" {
+		panic(fmt.Sprintf("Scheme should be wss or ws, but is: %s", addr.Scheme))
 	}
 
 	defer close(s.JoinChannel)
@@ -55,10 +61,10 @@ func (s *Server) Start() {
 
 	logger.Info.Println("Started Websocket Server")
 	http.HandleFunc("/", serveHome)
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(addr.Path, func(w http.ResponseWriter, r *http.Request) {
 		s.serveWs(w, r)
 	})
-	err := http.ListenAndServe(":5501", nil)
+	err := http.ListenAndServe(addr.Host, nil)
 	if err != nil {
 		logger.Error.Println("ListenAndServe: ", err)
 	}
