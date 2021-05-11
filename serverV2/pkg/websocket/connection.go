@@ -8,8 +8,8 @@ import (
 
 type Connection struct {
 	conn *websocket.Conn
-	Input chan []byte
-	Output chan []byte
+	Recv chan []byte
+	Send chan []byte
 
 	/* Client connection Handling */
 }
@@ -23,7 +23,7 @@ func (c Connection) writePump() {
 
 	for {
 		select {
-		case _, ok := <-c.Output:
+		case _, ok := <-c.Send:
 			// todo
 			if !ok {
 				return
@@ -50,12 +50,16 @@ func (c Connection) readPump() {
 			}
 			break
 		}
-		logger.Info.Println("Incoming Message: ", message)
+		c.Recv <-message
 	}
 }
 
 func NewConnection(conn *websocket.Conn) *Connection {
 	internalConnection := &Connection{conn: conn}
+
+	internalConnection.Recv = make(chan []byte)
+	internalConnection.Send = make(chan []byte)
+
 	go internalConnection.writePump()
 	go internalConnection.readPump()
 

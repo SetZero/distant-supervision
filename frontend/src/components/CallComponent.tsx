@@ -67,6 +67,12 @@ export const CallComponent: React.FC<CallProps> = () => {
 
     function streamStartHandler() {
         if (webRTC) {
+            webRTC.callOnConnected = () => {
+                console.log("called connected handler");
+                webRTC.setBitrate(bitrate);
+                webRTC.setVideoResolution(resolution.x, resolution.y)
+            }
+
             console.log("ok")
             dispatch(streamRole(webRTC.role));
             dispatch(startStream(true));

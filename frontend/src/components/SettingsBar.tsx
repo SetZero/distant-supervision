@@ -42,6 +42,7 @@ export const SettingsBar: React.FC<SettingsBarProps> = ({ }) => {
                     id="standard-start-adornment"
                     type="number"
                     onChange={(e) => handleBitrateChange(e)}
+                    value={bitrate}
                     InputProps={{
                         endAdornment: <InputAdornment position="end">Kb/s</InputAdornment>,
                     }}
