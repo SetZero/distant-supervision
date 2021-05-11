@@ -19,9 +19,12 @@ const configuration = {
 };
 
 export class WebRTC {
-    private readonly hostnameOverwrite = "rtc.magical.rocks";
+    /*private readonly hostnameOverwrite = "rtc.magical.rocks";
     private readonly protocolOverwrite = "wss://";
-    private readonly portOverwrite = false;
+    private readonly portOverwrite = false;*/
+    private readonly hostnameOverwrite = undefined;
+    private readonly protocolOverwrite = undefined;
+    private readonly portOverwrite = undefined;
 
     private readonly port = ((window.location.hostname === "localhost" && this.portOverwrite) ? ":5501" : "");
     private readonly protocol = (this.isSecureContext() ? "wss://" : "ws://");
@@ -43,7 +46,7 @@ export class WebRTC {
         },
         'audio': true
     };
-    public callOnConnected: () => any = () => {};
+    public callOnConnected: () => any = () => { };
 
     constructor(video: React.RefObject<HTMLVideoElement>,
         finishedLoading: (state: boolean) => void) {
@@ -231,7 +234,7 @@ export class WebRTC {
 
     private connectionStateChange(event: Event) {
         console.log("event state change: ", event);
-        if((event.currentTarget as any).connectionState === "connected") {
+        if ((event.currentTarget as any).connectionState === "connected") {
             this.callOnConnected();
         }
     }
