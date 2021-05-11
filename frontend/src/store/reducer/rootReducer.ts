@@ -3,7 +3,7 @@ let initialState = {
     showSettings: false,
     streamStarted: false,
     streamRole: -1,
-    streamResolution: JSON.parse(localStorage.getItem('stream/resolution') ?? "") ?? { x: 1280, y: 720 },
+    streamResolution: JSON.parse(localStorage.getItem('stream/resolution') ?? "null") ?? { x: 1280, y: 720 },
     finishedLoading: false,
     darkMode: localStorage.getItem("settings/darkMode") ?? false
 };
