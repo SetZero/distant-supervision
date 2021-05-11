@@ -1,8 +1,17 @@
-let initialState = { bitrate: 2000, showSettings: false, streamStarted: false, streamRole: -1, streamResolution: { x: 1280, y: 720 }, finishedLoading: false, darkMode: localStorage.getItem("settings/darkMode") ?? false };
+let initialState = {
+    bitrate: localStorage.getItem('settings/bitrate') ?? 2000,
+    showSettings: false,
+    streamStarted: false,
+    streamRole: -1,
+    streamResolution: JSON.parse(localStorage.getItem('stream/resolution') ?? "") ?? { x: 1280, y: 720 },
+    finishedLoading: false,
+    darkMode: localStorage.getItem("settings/darkMode") ?? false
+};
 
 export function rootReducer(state = initialState, action: any) {
     switch (action.type) {
         case 'settings/bitrate':
+            localStorage.setItem('settings/bitrate', action.payload.bitrate);
             return { ...state, bitrate: action.payload.bitrate };
         case 'settings/show':
             return { ...state, showSettings: action.payload.showSettings };
@@ -11,6 +20,7 @@ export function rootReducer(state = initialState, action: any) {
         case 'stream/role':
             return { ...state, streamRole: action.payload.streamRole };
         case 'stream/resolution':
+            localStorage.setItem('stream/resolution', JSON.stringify(action.payload.streamResolution));
             return { ...state, streamResolution: action.payload.streamResolution };
         case 'stream/finishedLoading':
             return { ...state, finishedLoading: action.payload.finishedLoading };
